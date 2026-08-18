@@ -169,6 +169,11 @@
                            FontAttributes="Bold"
                            CharacterSpacing="0.4"
                            VerticalOptions="Center" />
+                    <Label Text="{Binding Update.CurrentVersion, StringFormat='v{0}'}"
+                           Style="{StaticResource MonoLabel}"
+                           FontSize="10"
+                           TextColor="{StaticResource TextMuted}"
+                           VerticalOptions="Center" />
                 </HorizontalStackLayout>
 
                 <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
