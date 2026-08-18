@@ -36,6 +36,8 @@ public sealed class MainViewModel : ObservableBase
 
     public GitDiffViewModel GitDiff { get; } = new();
 
+    public UpdateViewModel Update { get; } = new();
+
     public System.Windows.Input.ICommand RefreshCommand
     {
         get { return this._refreshCommand; }
@@ -170,12 +172,14 @@ public sealed class MainViewModel : ObservableBase
             this._pumpTimer.Start();
         }
 
+        this.Update.Initialize();
         this.Refresh();
     }
 
     public void Shutdown()
     {
         this._pumpTimer?.Stop();
+        this.Update.Shutdown();
         this._scanCancellation?.Cancel();
 
         foreach (ProjectViewModel project in this._allProjects)

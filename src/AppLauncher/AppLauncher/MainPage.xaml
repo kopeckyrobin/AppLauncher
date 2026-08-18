@@ -179,6 +179,28 @@
                 </HorizontalStackLayout>
 
                 <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                    <Border BackgroundColor="{StaticResource AccentSoft}"
+                            Stroke="{StaticResource AccentBorder}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 6"
+                            Padding="10,3"
+                            VerticalOptions="Center"
+                            IsVisible="{Binding Update.IsVisible}">
+                        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                            <Label Text="{Binding Update.StatusText}"
+                                   FontSize="11"
+                                   TextColor="{StaticResource Accent}"
+                                   VerticalOptions="Center" />
+                            <Button Text="{Binding Update.ActionText}"
+                                    Style="{StaticResource ToolButton}"
+                                    HeightRequest="24"
+                                    FontSize="11"
+                                    Padding="10,0"
+                                    IsVisible="{Binding Update.HasAction}"
+                                    Command="{Binding Update.ActionCommand}" />
+                        </HorizontalStackLayout>
+                    </Border>
+
                     <Border WidthRequest="7"
                             HeightRequest="7"
                             StrokeThickness="0"

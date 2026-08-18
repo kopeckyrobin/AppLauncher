@@ -29,11 +29,37 @@ public sealed class AppStateStore
     public AppStateStore()
     {
         string directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AppLauncher");
 
         Directory.CreateDirectory(directory);
         this._filePath = Path.Combine(directory, "state.json");
+
+        MigrateLegacyState(this._filePath);
+    }
+
+    private static void MigrateLegacyState(string filePath)
+    {
+        if (File.Exists(filePath))
+        {
+            return;
+        }
+
+        string legacyPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AppLauncher",
+            "state.json");
+
+        try
+        {
+            if (File.Exists(legacyPath))
+            {
+                File.Copy(legacyPath, filePath);
+            }
+        }
+        catch (IOException)
+        {
+        }
     }
 
     public string RepositoriesRoot

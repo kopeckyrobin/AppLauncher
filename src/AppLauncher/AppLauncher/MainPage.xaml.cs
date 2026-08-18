@@ -17,6 +17,8 @@ public partial class MainPage : ContentPage
         this.BindingContext = this._viewModel;
         this._viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
 
+        this._viewModel.Update.RestartGuard = this.ConfirmRestartAsync;
+
         this.MarkerView.Drawable = this._markerDrawable;
         this._viewModel.GitDiff.PropertyChanged += this.OnGitDiffPropertyChanged;
         this.InlineDiffView.Scrolled += this.OnDiffScrolled;
@@ -39,6 +41,26 @@ public partial class MainPage : ContentPage
 
         this._isInitialized = true;
         this._viewModel.Initialize();
+    }
+
+    private async Task<bool> ConfirmRestartAsync()
+    {
+        if (this._viewModel.HasRunning)
+        {
+            bool confirmed = await this.DisplayAlertAsync(
+                "Aktualizace",
+                "Aktualizace ukončí všechny spuštěné aplikace. Pokračovat?",
+                "Restartovat",
+                "Zrušit");
+
+            if (!confirmed)
+            {
+                return false;
+            }
+        }
+
+        this._viewModel.Shutdown();
+        return true;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
