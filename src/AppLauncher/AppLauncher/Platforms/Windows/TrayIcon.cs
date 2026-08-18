@@ -5,6 +5,7 @@ namespace AppLauncher.WinUI;
 public sealed class TrayIcon : IDisposable
 {
     private const string ActivationMessageName = "AppLauncher.ActivateMainWindow";
+    private const string TaskbarCreatedMessageName = "TaskbarCreated";
     private const string WindowClassName = "AppLauncherTrayWindow";
 
     private const uint MessageNull = 0x0000;
@@ -40,9 +41,11 @@ public sealed class TrayIcon : IDisposable
     private const uint ExitCommand = 2;
 
     private readonly WindowProcedure _procedure;
+    private readonly string _tooltip;
     private readonly string _openText;
     private readonly string _exitText;
     private readonly uint _activationMessage;
+    private readonly uint _taskbarCreatedMessage;
 
     private nint _window;
     private nint _icon;
@@ -50,10 +53,12 @@ public sealed class TrayIcon : IDisposable
 
     public TrayIcon(string tooltip, string openText, string exitText)
     {
+        this._tooltip = tooltip;
         this._openText = openText;
         this._exitText = exitText;
         this._procedure = this.OnMessage;
         this._activationMessage = RegisterWindowMessageW(ActivationMessageName);
+        this._taskbarCreatedMessage = RegisterWindowMessageW(TaskbarCreatedMessageName);
 
         nint instance = GetModuleHandleW(null);
 
@@ -87,18 +92,17 @@ public sealed class TrayIcon : IDisposable
 
         this._icon = LoadApplicationIcon();
 
-        NotifyIconData data = this.CreateData();
-        data.Flags = IconFlagMessage | IconFlagIcon | IconFlagTip;
-        data.CallbackMessage = CallbackMessage;
-        data.Icon = this._icon;
-        data.Tip = tooltip;
-
-        this._isVisible = Shell_NotifyIconW(AddIcon, ref data);
+        this.AddToNotificationArea();
     }
 
     public event EventHandler? OpenRequested;
 
     public event EventHandler? ExitRequested;
+
+    public bool IsVisible
+    {
+        get { return this._isVisible; }
+    }
 
     public static void BroadcastActivation()
     {
@@ -155,6 +159,22 @@ public sealed class TrayIcon : IDisposable
             DestroyWindow(this._window);
             this._window = 0;
         }
+    }
+
+    private void AddToNotificationArea()
+    {
+        if (this._window == 0)
+        {
+            return;
+        }
+
+        NotifyIconData data = this.CreateData();
+        data.Flags = IconFlagMessage | IconFlagIcon | IconFlagTip;
+        data.CallbackMessage = CallbackMessage;
+        data.Icon = this._icon;
+        data.Tip = this._tooltip;
+
+        this._isVisible = Shell_NotifyIconW(AddIcon, ref data);
     }
 
     private NotifyIconData CreateData()
@@ -221,6 +241,13 @@ public sealed class TrayIcon : IDisposable
         if (this._activationMessage != 0 && message == this._activationMessage)
         {
             this.OpenRequested?.Invoke(this, EventArgs.Empty);
+            return 0;
+        }
+
+        if (this._taskbarCreatedMessage != 0 && message == this._taskbarCreatedMessage)
+        {
+            this._isVisible = false;
+            this.AddToNotificationArea();
             return 0;
         }
 

@@ -498,11 +498,16 @@
                                    Style="{StaticResource FieldEntry}"
                                    ClearButtonVisibility="WhileEditing" />
 
-                            <Label Grid.Column="1"
-                                   Text="{Binding SelectedProject.SearchStatus}"
-                                   Style="{StaticResource CaptionLabel}"
-                                   VerticalOptions="Center"
-                                   IsVisible="{Binding SelectedProject.HasSearch}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                                <Label Text="{Binding SelectedProject.CopyStatus}"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center"
+                                       IsVisible="{Binding SelectedProject.HasCopyStatus}" />
+                                <Label Text="{Binding SelectedProject.SearchStatus}"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center"
+                                       IsVisible="{Binding SelectedProject.HasSearch}" />
+                            </HorizontalStackLayout>
                         </Grid>
 
                         <Editor Grid.Row="3"

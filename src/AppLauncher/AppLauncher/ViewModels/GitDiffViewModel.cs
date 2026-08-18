@@ -20,7 +20,10 @@ public sealed class GitDiffViewModel : ObservableBase
 
     private const int CommitCount = 50;
 
+    private static readonly TimeSpan CommitTimeout = TimeSpan.FromMinutes(5);
+
     private CancellationTokenSource? _cancellation;
+    private CancellationTokenSource? _commitCancellation;
     private DiffDocument? _document;
     private string _branchName = String.Empty;
     private string _fileFilter = String.Empty;
@@ -224,7 +227,7 @@ public sealed class GitDiffViewModel : ObservableBase
         {
             if (this._isCommitting)
             {
-                return "Odesílám…";
+                return "Zrušit";
             }
 
             return "Commit and Push";
@@ -464,11 +467,7 @@ public sealed class GitDiffViewModel : ObservableBase
         this._allFiles.Clear();
         this.Files.Clear();
         this.SelectedFile = null;
-        this._document = null;
-        this.InlineLines = Array.Empty<DiffLine>();
-        this.SideRows = Array.Empty<DiffRow>();
-        this.Markers = Array.Empty<ChangeMarker>();
-        this.DiffSummary = String.Empty;
+        this.ClearDiff();
         this.ErrorMessage = String.Empty;
     }
 
@@ -503,6 +502,8 @@ public sealed class GitDiffViewModel : ObservableBase
 
         if (this.Files.Count == 0)
         {
+            this.SelectedFile = null;
+            this.ClearDiff();
             return;
         }
 
@@ -510,6 +511,17 @@ public sealed class GitDiffViewModel : ObservableBase
         {
             this.OnFileSelected(this.Files[0]);
         }
+    }
+
+    private void ClearDiff()
+    {
+        this._document = null;
+        this.Markers = Array.Empty<ChangeMarker>();
+        this.DiffSummary = String.Empty;
+        this.IsTruncated = false;
+        this.InlineLines = Array.Empty<DiffLine>();
+        this.SideRows = Array.Empty<DiffRow>();
+        this.ApplySearch(false);
     }
 
     private void ApplySearch(bool jumpToFirst)
@@ -617,33 +629,51 @@ public sealed class GitDiffViewModel : ObservableBase
 
     private bool CanCommitAndPush()
     {
-        return !this._isCommitting
-            && this.IsWorkingTree
+        if (this._isCommitting)
+        {
+            return true;
+        }
+
+        return this.IsWorkingTree
             && this._allFiles.Count > 0
             && !String.IsNullOrEmpty(this._commitMessage.Trim());
     }
 
     private void CommitAndPush()
     {
+        if (this._isCommitting)
+        {
+            this._commitCancellation?.Cancel();
+            return;
+        }
+
         _ = this.CommitAndPushAsync();
     }
 
     private async Task CommitAndPushAsync()
     {
+        CancellationTokenSource cancellation = new(CommitTimeout);
+
+        this._commitCancellation = cancellation;
         this.IsCommitting = true;
         this.CommitFailed = false;
-        this.CommitStatus = String.Empty;
+        this.CommitStatus = "Odesílám…";
 
         try
         {
             string branch = await this._gitService.CommitAndPushAsync(
                 this._repositoryPath,
                 this._commitMessage.Trim(),
-                CancellationToken.None);
+                cancellation.Token);
 
             this.CommitMessage = String.Empty;
             this.CommitStatus = $"Odesláno do origin/{branch}";
             this.Refresh();
+        }
+        catch (OperationCanceledException)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = "Odesílání zrušeno. Zkontroluj stav repozitáře, commit už mohl proběhnout.";
         }
         catch (Exception exception)
         {
@@ -653,6 +683,8 @@ public sealed class GitDiffViewModel : ObservableBase
         finally
         {
             this.IsCommitting = false;
+            this._commitCancellation = null;
+            cancellation.Dispose();
         }
     }
 
@@ -714,7 +746,7 @@ public sealed class GitDiffViewModel : ObservableBase
         {
             string branch = await this._gitService.GetCurrentBranchAsync(this._repositoryPath, cancellationToken);
 
-            this.BranchName = String.Equals(branch, "HEAD", StringComparison.Ordinal) ? "detached HEAD" : branch;
+            this.BranchName = String.IsNullOrEmpty(branch) ? "detached HEAD" : branch;
 
             IReadOnlyList<GitCommit> commits = await this._gitService.GetCommitsAsync(
                 this._repositoryPath,
@@ -770,11 +802,7 @@ public sealed class GitDiffViewModel : ObservableBase
         this._allFiles.Clear();
         this.Files.Clear();
         this.SelectedFile = null;
-        this._document = null;
-        this.InlineLines = Array.Empty<DiffLine>();
-        this.SideRows = Array.Empty<DiffRow>();
-        this.Markers = Array.Empty<ChangeMarker>();
-        this.DiffSummary = String.Empty;
+        this.ClearDiff();
         this.RaisePropertyChanged(nameof(this.EmptyListMessage));
 
         try

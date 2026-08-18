@@ -38,6 +38,7 @@ public partial class App : Application
         window.Destroying += (_, _) => page.Shutdown();
 
 #if WINDOWS
+        window.Destroying += (_, _) => this.ReleaseTrayIcon();
         window.HandlerChanged += (_, _) => this.AttachBackgroundMode(window);
 #endif
 
@@ -69,11 +70,31 @@ public partial class App : Application
         this._trayIcon = new TrayIcon("AppLauncher", "Otevřít AppLauncher", "Ukončit AppLauncher");
         this._trayIcon.OpenRequested += this.OnTrayOpenRequested;
         this._trayIcon.ExitRequested += this.OnTrayExitRequested;
+
+        AppDomain.CurrentDomain.ProcessExit += this.OnProcessExit;
+    }
+
+    private void OnProcessExit(object? sender, EventArgs eventArgs)
+    {
+        this.ReleaseTrayIcon();
+    }
+
+    private void ReleaseTrayIcon()
+    {
+        TrayIcon? trayIcon = this._trayIcon;
+
+        if (trayIcon is null)
+        {
+            return;
+        }
+
+        this._trayIcon = null;
+        trayIcon.Dispose();
     }
 
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs eventArgs)
     {
-        if (this._isExiting || this._trayIcon is null)
+        if (this._isExiting || this._trayIcon is null || !this._trayIcon.IsVisible)
         {
             return;
         }
@@ -112,9 +133,7 @@ public partial class App : Application
         this._isExiting = true;
 
         this._page?.Shutdown();
-
-        this._trayIcon?.Dispose();
-        this._trayIcon = null;
+        this.ReleaseTrayIcon();
 
         Microsoft.UI.Xaml.Application.Current.Exit();
     }

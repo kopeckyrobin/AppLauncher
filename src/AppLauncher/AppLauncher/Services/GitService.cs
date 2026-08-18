@@ -166,7 +166,7 @@ public sealed class GitService
     {
         GitCommandResult result = await this.RunAsync(
             repositoryPath,
-            new[] { "rev-parse", "--abbrev-ref", "HEAD" },
+            new[] { "symbolic-ref", "--short", "HEAD" },
             cancellationToken);
 
         if (!result.Success)
@@ -181,7 +181,7 @@ public sealed class GitService
     {
         string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
 
-        if (String.IsNullOrEmpty(branch) || String.Equals(branch, "HEAD", StringComparison.Ordinal))
+        if (String.IsNullOrEmpty(branch))
         {
             throw new InvalidOperationException("Repozitář není na žádné větvi (detached HEAD).");
         }
@@ -448,6 +448,7 @@ public sealed class GitService
         }
 
         startInfo.Environment["GIT_OPTIONAL_LOCKS"] = "0";
+        startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
 
         try
         {
@@ -457,7 +458,15 @@ public sealed class GitService
             Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
             Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            await process.WaitForExitAsync(cancellationToken);
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                KillQuietly(process);
+                throw;
+            }
 
             string output = await outputTask;
             string error = await errorTask;
@@ -477,6 +486,20 @@ public sealed class GitService
                 Output = String.Empty,
                 Error = exception.Message
             };
+        }
+    }
+
+    private static void KillQuietly(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
         }
     }
 

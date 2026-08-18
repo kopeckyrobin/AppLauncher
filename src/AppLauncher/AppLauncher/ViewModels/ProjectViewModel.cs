@@ -10,6 +10,8 @@ public sealed partial class ProjectViewModel : ObservableBase
     private const int MaximumLogLines = 2000;
     private const int StartupGracePeriodSeconds = 10;
 
+    private static readonly TimeSpan CopyStatusDuration = TimeSpan.FromSeconds(3);
+
     [GeneratedRegex("(?:Now listening on|listening on):?\\s*(?<url>https?://[^\\s]+)", RegexOptions.IgnoreCase)]
     private static partial Regex ListeningUrl();
 
@@ -31,6 +33,7 @@ public sealed partial class ProjectViewModel : ObservableBase
     private RunState _state = RunState.Idle;
     private string _logText = String.Empty;
     private string _searchText = String.Empty;
+    private string _copyStatus = String.Empty;
     private string _statusDetail = String.Empty;
     private int _matchCount;
     private int _droppedLines;
@@ -259,6 +262,23 @@ public sealed partial class ProjectViewModel : ObservableBase
     public bool HasSearch
     {
         get { return !String.IsNullOrEmpty(this._searchText); }
+    }
+
+    public string CopyStatus
+    {
+        get { return this._copyStatus; }
+        private set
+        {
+            if (this.SetProperty(ref this._copyStatus, value))
+            {
+                this.RaisePropertyChanged(nameof(this.HasCopyStatus));
+            }
+        }
+    }
+
+    public bool HasCopyStatus
+    {
+        get { return !String.IsNullOrEmpty(this._copyStatus); }
     }
 
     public string SearchStatus
@@ -511,7 +531,22 @@ public sealed partial class ProjectViewModel : ObservableBase
             return;
         }
 
-        _ = Clipboard.Default.SetTextAsync(this.LogText);
+        _ = this.CopyLogAsync();
+    }
+
+    private async Task CopyLogAsync()
+    {
+        try
+        {
+            await Clipboard.Default.SetTextAsync(this.LogText);
+            this.CopyStatus = "zkopírováno do schránky";
+        }
+        catch (Exception)
+        {
+            this.CopyStatus = "kopírování se nepovedlo";
+        }
+
+        Application.Current?.Dispatcher.DispatchDelayed(CopyStatusDuration, () => this.CopyStatus = String.Empty);
     }
 
     private void OpenUrl()
