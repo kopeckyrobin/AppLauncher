@@ -11,10 +11,25 @@ public sealed class GitDiffViewModel : ObservableBase
     private readonly RelayCommand _refreshCommand;
     private readonly RelayCommand _showInlineCommand;
     private readonly RelayCommand _showSideBySideCommand;
+    private readonly RelayCommand _commitAndPushCommand;
+    private readonly RelayCommand _findNextCommand;
+    private readonly RelayCommand _findPreviousCommand;
+    private readonly List<GitFileViewModel> _allFiles = new();
+    private readonly List<int> _inlineMatches = new();
+    private readonly List<int> _sideMatches = new();
 
     private const int CommitCount = 50;
 
     private CancellationTokenSource? _cancellation;
+    private DiffDocument? _document;
+    private string _branchName = String.Empty;
+    private string _fileFilter = String.Empty;
+    private string _diffSearchText = String.Empty;
+    private int _matchPosition = -1;
+    private string _commitMessage = String.Empty;
+    private string _commitStatus = String.Empty;
+    private bool _commitFailed;
+    private bool _isCommitting;
     private GitDiffSource? _selectedSource;
     private GitFileViewModel? _selectedFile;
     private string? _selectedCommitParent;
@@ -37,7 +52,12 @@ public sealed class GitDiffViewModel : ObservableBase
         this._refreshCommand = new RelayCommand(this.Refresh);
         this._showInlineCommand = new RelayCommand(this.ShowInline);
         this._showSideBySideCommand = new RelayCommand(this.ShowSideBySide);
+        this._commitAndPushCommand = new RelayCommand(this.CommitAndPush, this.CanCommitAndPush);
+        this._findNextCommand = new RelayCommand(this.FindNext, this.HasMatches);
+        this._findPreviousCommand = new RelayCommand(this.FindPrevious, this.HasMatches);
     }
+
+    public event EventHandler<int>? MatchScrollRequested;
 
     public ObservableCollection<GitFileViewModel> Files { get; } = new();
 
@@ -53,9 +73,15 @@ public sealed class GitDiffViewModel : ObservableBase
                 return;
             }
 
-            if (this.SetProperty(ref this._selectedSource, value) && !this._isSwitchingSource)
+            if (this.SetProperty(ref this._selectedSource, value))
             {
-                this.ReloadFiles();
+                this.RaisePropertyChanged(nameof(this.IsWorkingTree));
+                this._commitAndPushCommand.RaiseCanExecuteChanged();
+
+                if (!this._isSwitchingSource)
+                {
+                    this.ReloadFiles();
+                }
             }
         }
     }
@@ -78,6 +104,154 @@ public sealed class GitDiffViewModel : ObservableBase
     public System.Windows.Input.ICommand ShowSideBySideCommand
     {
         get { return this._showSideBySideCommand; }
+    }
+
+    public System.Windows.Input.ICommand CommitAndPushCommand
+    {
+        get { return this._commitAndPushCommand; }
+    }
+
+    public System.Windows.Input.ICommand FindNextCommand
+    {
+        get { return this._findNextCommand; }
+    }
+
+    public System.Windows.Input.ICommand FindPreviousCommand
+    {
+        get { return this._findPreviousCommand; }
+    }
+
+    public string BranchName
+    {
+        get { return this._branchName; }
+        private set
+        {
+            if (this.SetProperty(ref this._branchName, value))
+            {
+                this.RaisePropertyChanged(nameof(this.HasBranch));
+            }
+        }
+    }
+
+    public bool HasBranch
+    {
+        get { return !String.IsNullOrEmpty(this._branchName); }
+    }
+
+    public string FileFilter
+    {
+        get { return this._fileFilter; }
+        set
+        {
+            if (this.SetProperty(ref this._fileFilter, value ?? String.Empty))
+            {
+                this.ApplyFileFilter();
+            }
+        }
+    }
+
+    public string DiffSearchText
+    {
+        get { return this._diffSearchText; }
+        set
+        {
+            if (this.SetProperty(ref this._diffSearchText, value ?? String.Empty))
+            {
+                this.RaisePropertyChanged(nameof(this.HasSearchText));
+                this.ApplySearch(true);
+            }
+        }
+    }
+
+    public bool HasSearchText
+    {
+        get { return !String.IsNullOrEmpty(this._diffSearchText); }
+    }
+
+    public string MatchLabel
+    {
+        get
+        {
+            if (!this.HasSearchText)
+            {
+                return String.Empty;
+            }
+
+            int count = this.ActiveMatches.Count;
+
+            if (count == 0)
+            {
+                return "žádná shoda";
+            }
+
+            return $"{this._matchPosition + 1} / {count}";
+        }
+    }
+
+    public bool IsWorkingTree
+    {
+        get { return this._selectedSource is null || this._selectedSource.Kind == GitDiffSourceKind.WorkingTree; }
+    }
+
+    public string CommitMessage
+    {
+        get { return this._commitMessage; }
+        set
+        {
+            if (this.SetProperty(ref this._commitMessage, value ?? String.Empty))
+            {
+                this._commitAndPushCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool IsCommitting
+    {
+        get { return this._isCommitting; }
+        private set
+        {
+            if (this.SetProperty(ref this._isCommitting, value))
+            {
+                this.RaisePropertyChanged(nameof(this.CommitButtonText));
+                this._commitAndPushCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string CommitButtonText
+    {
+        get
+        {
+            if (this._isCommitting)
+            {
+                return "Odesílám…";
+            }
+
+            return "Commit and Push";
+        }
+    }
+
+    public string CommitStatus
+    {
+        get { return this._commitStatus; }
+        private set
+        {
+            if (this.SetProperty(ref this._commitStatus, value))
+            {
+                this.RaisePropertyChanged(nameof(this.HasCommitStatus));
+            }
+        }
+    }
+
+    public bool HasCommitStatus
+    {
+        get { return !String.IsNullOrEmpty(this._commitStatus); }
+    }
+
+    public bool CommitFailed
+    {
+        get { return this._commitFailed; }
+        private set { this.SetProperty(ref this._commitFailed, value); }
     }
 
     public bool IsOpen
@@ -123,6 +297,7 @@ public sealed class GitDiffViewModel : ObservableBase
             if (this.SetProperty(ref this._isSideBySide, value))
             {
                 this.RaisePropertyChanged(nameof(this.IsInline));
+                this.ResetMatchPosition();
             }
         }
     }
@@ -220,7 +395,12 @@ public sealed class GitDiffViewModel : ObservableBase
     {
         get
         {
-            int count = this.Files.Count;
+            int count = this._allFiles.Count;
+
+            if (!String.IsNullOrEmpty(this._fileFilter))
+            {
+                return $"{this.Files.Count} z {count} souborů";
+            }
 
             if (count == 1)
             {
@@ -245,6 +425,11 @@ public sealed class GitDiffViewModel : ObservableBase
     {
         get
         {
+            if (!String.IsNullOrEmpty(this._fileFilter))
+            {
+                return "Žádný soubor neodpovídá hledání.";
+            }
+
             if (this._selectedSource is not null && this._selectedSource.Kind == GitDiffSourceKind.Commit)
             {
                 return "Commit neobsahuje žádné změny.";
@@ -258,6 +443,11 @@ public sealed class GitDiffViewModel : ObservableBase
     {
         this.RepositoryName = repositoryName;
         this._repositoryPath = repositoryPath;
+        this.FileFilter = String.Empty;
+        this.DiffSearchText = String.Empty;
+        this.CommitMessage = String.Empty;
+        this.CommitStatus = String.Empty;
+        this.CommitFailed = false;
         this.IsOpen = true;
         this.Refresh();
     }
@@ -271,13 +461,223 @@ public sealed class GitDiffViewModel : ObservableBase
         this.SelectedSource = null;
         this._selectedSource = null;
         this._isSwitchingSource = false;
+        this._allFiles.Clear();
         this.Files.Clear();
         this.SelectedFile = null;
+        this._document = null;
         this.InlineLines = Array.Empty<DiffLine>();
         this.SideRows = Array.Empty<DiffRow>();
         this.Markers = Array.Empty<ChangeMarker>();
         this.DiffSummary = String.Empty;
         this.ErrorMessage = String.Empty;
+    }
+
+    private List<int> ActiveMatches
+    {
+        get { return this._isSideBySide ? this._sideMatches : this._inlineMatches; }
+    }
+
+    private bool HasMatches()
+    {
+        return this.ActiveMatches.Count > 0;
+    }
+
+    private void ApplyFileFilter()
+    {
+        GitFileViewModel? previous = this.SelectedFile;
+
+        this.Files.Clear();
+
+        foreach (GitFileViewModel file in this._allFiles)
+        {
+            if (String.IsNullOrEmpty(this._fileFilter) ||
+                file.Change.Path.Contains(this._fileFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                this.Files.Add(file);
+            }
+        }
+
+        this.RaisePropertyChanged(nameof(this.FileCountLabel));
+        this.RaisePropertyChanged(nameof(this.EmptyListMessage));
+        this.RaisePropertyChanged(nameof(this.HasNoChanges));
+
+        if (this.Files.Count == 0)
+        {
+            return;
+        }
+
+        if (previous is null || !this.Files.Contains(previous))
+        {
+            this.OnFileSelected(this.Files[0]);
+        }
+    }
+
+    private void ApplySearch(bool jumpToFirst)
+    {
+        this._inlineMatches.Clear();
+        this._sideMatches.Clear();
+
+        DiffDocument? document = this._document;
+
+        if (document is null)
+        {
+            this.ResetMatchPosition();
+            return;
+        }
+
+        string search = this._diffSearchText;
+        bool hasSearch = !String.IsNullOrEmpty(search);
+
+        for (int index = 0; index < document.InlineLines.Count; index++)
+        {
+            DiffLine line = document.InlineLines[index];
+            bool isMatch = hasSearch && !line.IsHunk && line.Text.Contains(search, StringComparison.OrdinalIgnoreCase);
+
+            line.IsMatch = isMatch;
+
+            if (isMatch)
+            {
+                this._inlineMatches.Add(index);
+            }
+        }
+
+        for (int index = 0; index < document.SideRows.Count; index++)
+        {
+            DiffRow row = document.SideRows[index];
+            bool leftMatch = hasSearch && !row.IsHunk && row.LeftText.Contains(search, StringComparison.OrdinalIgnoreCase);
+            bool rightMatch = hasSearch && !row.IsHunk && row.RightText.Contains(search, StringComparison.OrdinalIgnoreCase);
+
+            row.LeftIsMatch = leftMatch;
+            row.RightIsMatch = rightMatch;
+
+            if (leftMatch || rightMatch)
+            {
+                this._sideMatches.Add(index);
+            }
+        }
+
+        this.InlineLines = new List<DiffLine>(document.InlineLines);
+        this.SideRows = new List<DiffRow>(document.SideRows);
+
+        this.ResetMatchPosition();
+
+        if (jumpToFirst)
+        {
+            this.RequestScroll();
+        }
+    }
+
+    private void ResetMatchPosition()
+    {
+        this._matchPosition = this.ActiveMatches.Count > 0 ? 0 : -1;
+        this.RaisePropertyChanged(nameof(this.MatchLabel));
+        this._findNextCommand.RaiseCanExecuteChanged();
+        this._findPreviousCommand.RaiseCanExecuteChanged();
+    }
+
+    private void FindNext()
+    {
+        List<int> matches = this.ActiveMatches;
+
+        if (matches.Count == 0)
+        {
+            return;
+        }
+
+        this._matchPosition = (this._matchPosition + 1) % matches.Count;
+        this.RaisePropertyChanged(nameof(this.MatchLabel));
+        this.RequestScroll();
+    }
+
+    private void FindPrevious()
+    {
+        List<int> matches = this.ActiveMatches;
+
+        if (matches.Count == 0)
+        {
+            return;
+        }
+
+        this._matchPosition = (this._matchPosition - 1 + matches.Count) % matches.Count;
+        this.RaisePropertyChanged(nameof(this.MatchLabel));
+        this.RequestScroll();
+    }
+
+    private void RequestScroll()
+    {
+        List<int> matches = this.ActiveMatches;
+
+        if (this._matchPosition < 0 || this._matchPosition >= matches.Count)
+        {
+            return;
+        }
+
+        this.MatchScrollRequested?.Invoke(this, matches[this._matchPosition]);
+    }
+
+    private bool CanCommitAndPush()
+    {
+        return !this._isCommitting
+            && this.IsWorkingTree
+            && this._allFiles.Count > 0
+            && !String.IsNullOrEmpty(this._commitMessage.Trim());
+    }
+
+    private void CommitAndPush()
+    {
+        _ = this.CommitAndPushAsync();
+    }
+
+    private async Task CommitAndPushAsync()
+    {
+        this.IsCommitting = true;
+        this.CommitFailed = false;
+        this.CommitStatus = String.Empty;
+
+        try
+        {
+            string branch = await this._gitService.CommitAndPushAsync(
+                this._repositoryPath,
+                this._commitMessage.Trim(),
+                CancellationToken.None);
+
+            this.CommitMessage = String.Empty;
+            this.CommitStatus = $"Odesláno do origin/{branch}";
+            this.Refresh();
+        }
+        catch (Exception exception)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = Condense(exception.Message);
+        }
+        finally
+        {
+            this.IsCommitting = false;
+        }
+    }
+
+    private static string Condense(string message)
+    {
+        List<string> parts = new();
+
+        foreach (string line in message.Split('\n'))
+        {
+            string trimmed = line.Trim();
+
+            if (!String.IsNullOrEmpty(trimmed))
+            {
+                parts.Add(trimmed);
+            }
+        }
+
+        string joined = String.Join(" · ", parts);
+
+        if (joined.Length > 200)
+        {
+            return joined[..200] + "…";
+        }
+
+        return joined;
     }
 
     private void ShowInline()
@@ -312,6 +712,10 @@ public sealed class GitDiffViewModel : ObservableBase
 
         try
         {
+            string branch = await this._gitService.GetCurrentBranchAsync(this._repositoryPath, cancellationToken);
+
+            this.BranchName = String.Equals(branch, "HEAD", StringComparison.Ordinal) ? "detached HEAD" : branch;
+
             IReadOnlyList<GitCommit> commits = await this._gitService.GetCommitsAsync(
                 this._repositoryPath,
                 CommitCount,
@@ -363,8 +767,10 @@ public sealed class GitDiffViewModel : ObservableBase
     {
         this.IsLoading = true;
         this.ErrorMessage = String.Empty;
+        this._allFiles.Clear();
         this.Files.Clear();
         this.SelectedFile = null;
+        this._document = null;
         this.InlineLines = Array.Empty<DiffLine>();
         this.SideRows = Array.Empty<DiffRow>();
         this.Markers = Array.Empty<ChangeMarker>();
@@ -403,15 +809,10 @@ public sealed class GitDiffViewModel : ObservableBase
 
             foreach (GitFileChange change in changes)
             {
-                this.Files.Add(new GitFileViewModel(change, this.OnFileSelected));
+                this._allFiles.Add(new GitFileViewModel(change, this.OnFileSelected));
             }
 
-            this.RaisePropertyChanged(nameof(this.FileCountLabel));
-
-            if (this.Files.Count > 0)
-            {
-                this.OnFileSelected(this.Files[0]);
-            }
+            this.ApplyFileFilter();
         }
         catch (OperationCanceledException)
         {
@@ -424,6 +825,7 @@ public sealed class GitDiffViewModel : ObservableBase
         {
             this.IsLoading = false;
             this.RaisePropertyChanged(nameof(this.HasNoChanges));
+            this._commitAndPushCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -463,10 +865,10 @@ public sealed class GitDiffViewModel : ObservableBase
                 return;
             }
 
-            this.InlineLines = document.InlineLines;
-            this.SideRows = document.SideRows;
+            this._document = document;
             this.Markers = document.Markers;
             this.IsTruncated = document.IsTruncated;
+            this.ApplySearch(false);
 
             if (document.InlineLines.Count == 0)
             {

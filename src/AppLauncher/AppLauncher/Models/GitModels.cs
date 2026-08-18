@@ -118,6 +118,8 @@ public sealed class DiffLine
 
     public string NewNumber { get; init; } = String.Empty;
 
+    public bool IsMatch { get; set; }
+
     public string Sign
     {
         get
@@ -153,6 +155,10 @@ public sealed class DiffRow
     public string RightNumber { get; init; } = String.Empty;
 
     public string RightText { get; init; } = String.Empty;
+
+    public bool LeftIsMatch { get; set; }
+
+    public bool RightIsMatch { get; set; }
 
     public bool IsHunk
     {

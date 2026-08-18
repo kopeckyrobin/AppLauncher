@@ -162,6 +162,78 @@ public sealed class GitService
         return changes;
     }
 
+    public async Task<string> GetCurrentBranchAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "rev-parse", "--abbrev-ref", "HEAD" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return String.Empty;
+        }
+
+        return result.Output.Trim();
+    }
+
+    public async Task<string> CommitAndPushAsync(string repositoryPath, string message, CancellationToken cancellationToken)
+    {
+        string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
+
+        if (String.IsNullOrEmpty(branch) || String.Equals(branch, "HEAD", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Repozitář není na žádné větvi (detached HEAD).");
+        }
+
+        GitCommandResult staged = await this.RunAsync(
+            repositoryPath,
+            new[] { "add", "--all" },
+            cancellationToken);
+
+        if (!staged.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git add", staged));
+        }
+
+        GitCommandResult committed = await this.RunAsync(
+            repositoryPath,
+            new[] { "commit", "-m", message },
+            cancellationToken);
+
+        if (!committed.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git commit", committed));
+        }
+
+        GitCommandResult pushed = await this.RunAsync(
+            repositoryPath,
+            new[] { "push", "--set-upstream", "origin", branch },
+            cancellationToken);
+
+        if (!pushed.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git push", pushed));
+        }
+
+        return branch;
+    }
+
+    private static string DescribeFailure(string command, GitCommandResult result)
+    {
+        if (!String.IsNullOrEmpty(result.Error))
+        {
+            return $"{command}: {result.Error.Trim()}";
+        }
+
+        if (!String.IsNullOrEmpty(result.Output))
+        {
+            return $"{command}: {result.Output.Trim()}";
+        }
+
+        return $"{command} selhal.";
+    }
+
     public async Task<IReadOnlyList<GitCommit>> GetCommitsAsync(string repositoryPath, int count, CancellationToken cancellationToken)
     {
         GitCommandResult result = await this.RunAsync(

@@ -76,6 +76,22 @@
         <Setter Property="Padding" Value="0" />
     </Style>
 
+    <Style x:Key="FieldEntry" TargetType="Entry">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceRaised}" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="HeightRequest" Value="32" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style x:Key="LogEditor" TargetType="Editor">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="FontFamily" Value="Consolas" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
     <Style TargetType="Picker">
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="TitleColor" Value="{StaticResource TextMuted}" />

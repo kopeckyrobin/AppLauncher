@@ -21,6 +21,7 @@ public partial class MainPage : ContentPage
 
         this.MarkerView.Drawable = this._markerDrawable;
         this._viewModel.GitDiff.PropertyChanged += this.OnGitDiffPropertyChanged;
+        this._viewModel.GitDiff.MatchScrollRequested += this.OnMatchScrollRequested;
         this.InlineDiffView.Scrolled += this.OnDiffScrolled;
         this.SideDiffView.Scrolled += this.OnDiffScrolled;
     }
@@ -93,6 +94,81 @@ public partial class MainPage : ContentPage
         }
     }
 
+    private void ScrollLogToEnd()
+    {
+        this.Dispatcher.Dispatch(() =>
+        {
+#if WINDOWS
+            if (this.LogEditor.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBox textBox)
+            {
+                return;
+            }
+
+            Microsoft.UI.Xaml.Controls.ScrollViewer? viewer = FindScrollViewer(textBox);
+
+            if (viewer is null)
+            {
+                return;
+            }
+
+            if (this._viewModel.SelectedProject is not null && this._viewModel.SelectedProject.HasSearch)
+            {
+                viewer.ChangeView(null, 0, null, true);
+                return;
+            }
+
+            if (textBox.SelectionLength > 0)
+            {
+                return;
+            }
+
+            viewer.UpdateLayout();
+            viewer.ChangeView(null, viewer.ScrollableHeight, null, true);
+#endif
+        });
+    }
+
+#if WINDOWS
+    private static Microsoft.UI.Xaml.Controls.ScrollViewer? FindScrollViewer(Microsoft.UI.Xaml.DependencyObject root)
+    {
+        int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+
+        for (int index = 0; index < count; index++)
+        {
+            Microsoft.UI.Xaml.DependencyObject child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, index);
+
+            if (child is Microsoft.UI.Xaml.Controls.ScrollViewer viewer)
+            {
+                return viewer;
+            }
+
+            Microsoft.UI.Xaml.Controls.ScrollViewer? nested = FindScrollViewer(child);
+
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+#endif
+
+    private void OnMatchScrollRequested(object? sender, int index)
+    {
+        this.Dispatcher.Dispatch(() =>
+        {
+            if (this._viewModel.GitDiff.IsSideBySide)
+            {
+                this.SideDiffView.ScrollTo(index, position: ScrollToPosition.Center, animate: false);
+            }
+            else
+            {
+                this.InlineDiffView.ScrollTo(index, position: ScrollToPosition.Center, animate: false);
+            }
+        });
+    }
+
     private void OnGitDiffPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
     {
         if (eventArgs.PropertyName != nameof(GitDiffViewModel.Markers))
@@ -123,18 +199,5 @@ public partial class MainPage : ContentPage
         this._markerDrawable.ViewportStart = first / total;
         this._markerDrawable.ViewportEnd = Math.Min((last + 1) / total, 1);
         this.MarkerView.Invalidate();
-    }
-
-    private void ScrollLogToEnd()
-    {
-        this.Dispatcher.Dispatch(() =>
-        {
-            double target = this.LogScrollView.ContentSize.Height - this.LogScrollView.Height;
-
-            if (target > 0)
-            {
-                this.LogScrollView.ScrollToAsync(0, target, false);
-            }
-        });
     }
 }

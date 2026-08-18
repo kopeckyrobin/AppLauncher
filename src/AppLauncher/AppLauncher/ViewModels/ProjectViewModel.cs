@@ -7,7 +7,7 @@ namespace AppLauncher.ViewModels;
 
 public sealed partial class ProjectViewModel : ObservableBase
 {
-    private const int MaximumLogLines = 600;
+    private const int MaximumLogLines = 2000;
     private const int StartupGracePeriodSeconds = 10;
 
     [GeneratedRegex("(?:Now listening on|listening on):?\\s*(?<url>https?://[^\\s]+)", RegexOptions.IgnoreCase)]
@@ -22,6 +22,7 @@ public sealed partial class ProjectViewModel : ObservableBase
     private readonly RelayCommand _toggleCommand;
     private readonly RelayCommand _selectCommand;
     private readonly RelayCommand _clearLogCommand;
+    private readonly RelayCommand _copyLogCommand;
     private readonly RelayCommand _openUrlCommand;
 
     private readonly List<string> _detectedUrls = new();
@@ -29,7 +30,10 @@ public sealed partial class ProjectViewModel : ObservableBase
     private LaunchProfile _selectedProfile;
     private RunState _state = RunState.Idle;
     private string _logText = String.Empty;
+    private string _searchText = String.Empty;
     private string _statusDetail = String.Empty;
+    private int _matchCount;
+    private int _droppedLines;
     private bool _isSelected;
     private DateTime _startedAt;
 
@@ -53,6 +57,7 @@ public sealed partial class ProjectViewModel : ObservableBase
         this._toggleCommand = new RelayCommand(this.Toggle);
         this._selectCommand = new RelayCommand(this.Select);
         this._clearLogCommand = new RelayCommand(this.ClearLog);
+        this._copyLogCommand = new RelayCommand(this.CopyLog);
         this._openUrlCommand = new RelayCommand(this.OpenUrl);
 
         this._runner.Exited += this.OnRunnerExited;
@@ -103,6 +108,11 @@ public sealed partial class ProjectViewModel : ObservableBase
     public System.Windows.Input.ICommand ClearLogCommand
     {
         get { return this._clearLogCommand; }
+    }
+
+    public System.Windows.Input.ICommand CopyLogCommand
+    {
+        get { return this._copyLogCommand; }
     }
 
     public System.Windows.Input.ICommand OpenUrlCommand
@@ -233,6 +243,52 @@ public sealed partial class ProjectViewModel : ObservableBase
         get { return this._logLines.Count > 0; }
     }
 
+    public string SearchText
+    {
+        get { return this._searchText; }
+        set
+        {
+            if (this.SetProperty(ref this._searchText, value ?? String.Empty))
+            {
+                this.RaisePropertyChanged(nameof(this.HasSearch));
+                this.FlushLog();
+            }
+        }
+    }
+
+    public bool HasSearch
+    {
+        get { return !String.IsNullOrEmpty(this._searchText); }
+    }
+
+    public string SearchStatus
+    {
+        get
+        {
+            if (!this.HasSearch)
+            {
+                return String.Empty;
+            }
+
+            if (this._matchCount == 0)
+            {
+                return "žádná shoda";
+            }
+
+            if (this._matchCount == 1)
+            {
+                return "1 shoda";
+            }
+
+            if (this._matchCount <= 4)
+            {
+                return $"{this._matchCount} shody";
+            }
+
+            return $"{this._matchCount} shod";
+        }
+    }
+
     public string DisplayUrl
     {
         get
@@ -317,6 +373,7 @@ public sealed partial class ProjectViewModel : ObservableBase
         this._logLines.Clear();
         this._detectedUrls.Clear();
         this._statusDetail = String.Empty;
+        this._droppedLines = 0;
         this.LogText = String.Empty;
         this._startedAt = DateTime.UtcNow;
 
@@ -403,20 +460,36 @@ public sealed partial class ProjectViewModel : ObservableBase
         while (this._logLines.Count > MaximumLogLines)
         {
             this._logLines.Dequeue();
+            this._droppedLines++;
         }
     }
 
     private void FlushLog()
     {
         StringBuilder builder = new();
+        bool isFiltered = this.HasSearch;
+        int matches = 0;
+        int number = this._droppedLines + 1;
 
         foreach (string line in this._logLines)
         {
-            builder.AppendLine(line);
+            if (!isFiltered)
+            {
+                builder.AppendLine(line);
+            }
+            else if (line.Contains(this._searchText, StringComparison.OrdinalIgnoreCase))
+            {
+                matches++;
+                builder.Append(number.ToString().PadLeft(5)).Append("  ").AppendLine(line);
+            }
+
+            number++;
         }
 
+        this._matchCount = matches;
         this.LogText = builder.ToString();
         this.RaisePropertyChanged(nameof(this.HasLog));
+        this.RaisePropertyChanged(nameof(this.SearchStatus));
     }
 
     private void Select()
@@ -427,8 +500,18 @@ public sealed partial class ProjectViewModel : ObservableBase
     private void ClearLog()
     {
         this._logLines.Clear();
-        this.LogText = String.Empty;
-        this.RaisePropertyChanged(nameof(this.HasLog));
+        this._droppedLines = 0;
+        this.FlushLog();
+    }
+
+    private void CopyLog()
+    {
+        if (String.IsNullOrEmpty(this.LogText))
+        {
+            return;
+        }
+
+        _ = Clipboard.Default.SetTextAsync(this.LogText);
     }
 
     private void OpenUrl()

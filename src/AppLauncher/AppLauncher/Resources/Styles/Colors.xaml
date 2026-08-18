@@ -40,5 +40,6 @@
 
     <Color x:Key="DiffFillerBackground">#12141A</Color>
     <Color x:Key="DiffLineNumber">#59616F</Color>
+    <Color x:Key="DiffMatchHighlight">#59E3B341</Color>
 
 </ResourceDictionary>
