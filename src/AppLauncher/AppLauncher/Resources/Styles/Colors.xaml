@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <Color x:Key="Canvas">#0F1115</Color>
+    <Color x:Key="Surface">#161920</Color>
+    <Color x:Key="SurfaceRaised">#1B1F27</Color>
+    <Color x:Key="SurfaceHover">#20242D</Color>
+    <Color x:Key="Border">#272C36</Color>
+    <Color x:Key="BorderSoft">#1E222A</Color>
+
+    <Color x:Key="TextPrimary">#E7EAF0</Color>
+    <Color x:Key="TextSecondary">#98A1B0</Color>
+    <Color x:Key="TextMuted">#68707E</Color>
+
+    <Color x:Key="Accent">#5B8DEF</Color>
+    <Color x:Key="AccentSoft">#1E2A44</Color>
+    <Color x:Key="AccentBorder">#33477A</Color>
+
+    <Color x:Key="Success">#3FB950</Color>
+    <Color x:Key="SuccessSoft">#15291B</Color>
+    <Color x:Key="SuccessBorder">#245C33</Color>
+
+    <Color x:Key="Danger">#E5534B</Color>
+    <Color x:Key="DangerSoft">#2C1817</Color>
+    <Color x:Key="DangerBorder">#6B2F2B</Color>
+
+    <Color x:Key="Warning">#D9A441</Color>
+
+    <Color x:Key="DiffAddedBackground">#0E2A18</Color>
+    <Color x:Key="DiffAddedGutter">#12351E</Color>
+    <Color x:Key="DiffAddedText">#7EE787</Color>
+
+    <Color x:Key="DiffRemovedBackground">#2E1417</Color>
+    <Color x:Key="DiffRemovedGutter">#3B171B</Color>
+    <Color x:Key="DiffRemovedText">#FF9492</Color>
+
+    <Color x:Key="DiffHunkBackground">#151C2B</Color>
+    <Color x:Key="DiffHunkText">#7A8AA3</Color>
+
+    <Color x:Key="DiffFillerBackground">#12141A</Color>
+    <Color x:Key="DiffLineNumber">#59616F</Color>
+
+</ResourceDictionary>

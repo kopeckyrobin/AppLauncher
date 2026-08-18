@@ -1,0 +1,647 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:AppLauncher.ViewModels"
+             xmlns:conv="clr-namespace:AppLauncher.Converters"
+             xmlns:models="clr-namespace:AppLauncher.Models"
+             xmlns:views="clr-namespace:AppLauncher.Views"
+             x:Class="AppLauncher.MainPage"
+             x:DataType="vm:MainViewModel"
+             Title="AppLauncher">
+
+    <ContentPage.Resources>
+        <conv:RunStateToColorConverter x:Key="RunStateToColor" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+
+        <conv:BoolToColorConverter x:Key="RowBackground"
+                                   TrueColor="#20242D"
+                                   FalseColor="Transparent" />
+
+        <conv:BoolToColorConverter x:Key="ActionBackground"
+                                   TrueColor="#2C1817"
+                                   FalseColor="#1E2A44" />
+
+        <conv:BoolToColorConverter x:Key="ActionBorder"
+                                   TrueColor="#6B2F2B"
+                                   FalseColor="#33477A" />
+
+        <conv:BoolToColorConverter x:Key="ActionText"
+                                   TrueColor="#E5534B"
+                                   FalseColor="#5B8DEF" />
+
+        <conv:BoolToColorConverter x:Key="SegmentBackground"
+                                   TrueColor="#1E2A44"
+                                   FalseColor="Transparent" />
+
+        <conv:BoolToColorConverter x:Key="SegmentText"
+                                   TrueColor="#5B8DEF"
+                                   FalseColor="#98A1B0" />
+
+        <conv:DiffKindToBackgroundConverter x:Key="DiffBackground" />
+        <conv:DiffKindToGutterConverter x:Key="DiffGutter" />
+        <conv:DiffKindToTextColorConverter x:Key="DiffText" />
+        <conv:DiffKindToSignConverter x:Key="DiffSign" />
+        <conv:DiffKindToSignColorConverter x:Key="DiffSignColor" />
+
+        <DataTemplate x:Key="InlineHunkTemplate" x:DataType="models:DiffLine">
+            <Grid BackgroundColor="{StaticResource DiffHunkBackground}">
+                <Label Text="{Binding Text}" Style="{StaticResource DiffHunkLabel}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InlineLineTemplate" x:DataType="models:DiffLine">
+            <Grid ColumnDefinitions="52,52,16,*"
+                  BackgroundColor="{Binding Kind, Converter={StaticResource DiffBackground}}">
+                <Label Grid.Column="0"
+                       Text="{Binding OldNumber}"
+                       Style="{StaticResource DiffGutterLabel}"
+                       BackgroundColor="{Binding Kind, Converter={StaticResource DiffGutter}}" />
+                <Label Grid.Column="1"
+                       Text="{Binding NewNumber}"
+                       Style="{StaticResource DiffGutterLabel}"
+                       BackgroundColor="{Binding Kind, Converter={StaticResource DiffGutter}}" />
+                <Label Grid.Column="2"
+                       Text="{Binding Sign}"
+                       Style="{StaticResource DiffSignLabel}"
+                       TextColor="{Binding Kind, Converter={StaticResource DiffSignColor}}" />
+                <Label Grid.Column="3"
+                       Text="{Binding Text}"
+                       Style="{StaticResource DiffTextLabel}"
+                       TextColor="{Binding Kind, Converter={StaticResource DiffText}}" />
+            </Grid>
+        </DataTemplate>
+
+        <views:DiffLineTemplateSelector x:Key="InlineSelector"
+                                        HunkTemplate="{StaticResource InlineHunkTemplate}"
+                                        LineTemplate="{StaticResource InlineLineTemplate}" />
+
+        <DataTemplate x:Key="SideHunkTemplate" x:DataType="models:DiffRow">
+            <Grid BackgroundColor="{StaticResource DiffHunkBackground}">
+                <Label Text="{Binding LeftText}" Style="{StaticResource DiffHunkLabel}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SideRowTemplate" x:DataType="models:DiffRow">
+            <Grid ColumnDefinitions="*,1,*">
+                <Grid Grid.Column="0"
+                      ColumnDefinitions="52,16,*"
+                      BackgroundColor="{Binding LeftKind, Converter={StaticResource DiffBackground}}">
+                    <Label Grid.Column="0"
+                           Text="{Binding LeftNumber}"
+                           Style="{StaticResource DiffGutterLabel}"
+                           BackgroundColor="{Binding LeftKind, Converter={StaticResource DiffGutter}}" />
+                    <Label Grid.Column="1"
+                           Text="{Binding LeftKind, Converter={StaticResource DiffSign}}"
+                           Style="{StaticResource DiffSignLabel}"
+                           TextColor="{Binding LeftKind, Converter={StaticResource DiffSignColor}}" />
+                    <Label Grid.Column="2"
+                           Text="{Binding LeftText}"
+                           Style="{StaticResource DiffTextLabel}"
+                           TextColor="{Binding LeftKind, Converter={StaticResource DiffText}}" />
+                </Grid>
+
+                <BoxView Grid.Column="1" Color="{StaticResource Border}" />
+
+                <Grid Grid.Column="2"
+                      ColumnDefinitions="52,16,*"
+                      BackgroundColor="{Binding RightKind, Converter={StaticResource DiffBackground}}">
+                    <Label Grid.Column="0"
+                           Text="{Binding RightNumber}"
+                           Style="{StaticResource DiffGutterLabel}"
+                           BackgroundColor="{Binding RightKind, Converter={StaticResource DiffGutter}}" />
+                    <Label Grid.Column="1"
+                           Text="{Binding RightKind, Converter={StaticResource DiffSign}}"
+                           Style="{StaticResource DiffSignLabel}"
+                           TextColor="{Binding RightKind, Converter={StaticResource DiffSignColor}}" />
+                    <Label Grid.Column="2"
+                           Text="{Binding RightText}"
+                           Style="{StaticResource DiffTextLabel}"
+                           TextColor="{Binding RightKind, Converter={StaticResource DiffText}}" />
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <views:DiffRowTemplateSelector x:Key="SideSelector"
+                                       HunkTemplate="{StaticResource SideHunkTemplate}"
+                                       RowTemplate="{StaticResource SideRowTemplate}" />
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" BackgroundColor="{StaticResource Canvas}">
+
+        <Border Grid.Row="0"
+                BackgroundColor="{StaticResource Surface}"
+                Stroke="{StaticResource BorderSoft}"
+                StrokeThickness="0"
+                Padding="16,0">
+            <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="52" ColumnSpacing="18">
+
+                <HorizontalStackLayout Grid.Column="0" Spacing="10" VerticalOptions="Center">
+                    <Border WidthRequest="26"
+                            HeightRequest="26"
+                            BackgroundColor="{StaticResource AccentSoft}"
+                            Stroke="{StaticResource AccentBorder}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 7">
+                        <Label Text="&#x25B6;"
+                               FontSize="10"
+                               TextColor="{StaticResource Accent}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="AppLauncher"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           CharacterSpacing="0.4"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                    <Border BackgroundColor="{StaticResource SurfaceRaised}"
+                            Stroke="{StaticResource Border}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 6"
+                            Padding="10,5">
+                        <Label Text="{Binding RootPath}"
+                               Style="{StaticResource MonoLabel}"
+                               FontSize="11"
+                               LineBreakMode="HeadTruncation"
+                               MaximumWidthRequest="360"
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenRootCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Border>
+                    <Button Text="Změnit"
+                            Style="{StaticResource ToolButton}"
+                            HeightRequest="28"
+                            Command="{Binding ChangeRootCommand}" />
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                    <Border WidthRequest="7"
+                            HeightRequest="7"
+                            StrokeThickness="0"
+                            StrokeShape="Ellipse"
+                            VerticalOptions="Center"
+                            IsVisible="{Binding HasRunning}"
+                            BackgroundColor="{StaticResource Success}" />
+                    <Label Text="{Binding RunningLabel}"
+                           Style="{StaticResource CaptionLabel}"
+                           FontSize="12"
+                           VerticalOptions="Center" />
+                    <Button Text="Zastavit vše"
+                            Style="{StaticResource ToolButton}"
+                            HeightRequest="28"
+                            IsVisible="{Binding HasRunning}"
+                            Command="{Binding StopAllCommand}" />
+                    <Button Text="Načíst znovu"
+                            Style="{StaticResource ToolButton}"
+                            HeightRequest="28"
+                            IsEnabled="{Binding IsIdle}"
+                            Command="{Binding RefreshCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <BoxView Grid.Row="0"
+                 HeightRequest="1"
+                 Color="{StaticResource Border}"
+                 VerticalOptions="End" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="470,*" ColumnSpacing="14" Padding="14">
+
+            <Grid Grid.Column="0" RowDefinitions="*,Auto">
+                <ScrollView Grid.Row="0">
+                    <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Repositories}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:RepositoryViewModel">
+                                <Border Style="{StaticResource PanelBorder}" Padding="0">
+                                    <VerticalStackLayout>
+
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                              ColumnSpacing="8"
+                                              Padding="12,9,10,9">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ToggleExpandCommand}" />
+                                            </Grid.GestureRecognizers>
+
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding ExpanderGlyph}"
+                                                   FontSize="10"
+                                                   TextColor="{StaticResource TextMuted}"
+                                                   WidthRequest="12"
+                                                   VerticalOptions="Center" />
+
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center" />
+
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding CurrentBranch}"
+                                                   Style="{StaticResource CaptionLabel}"
+                                                   FontSize="11"
+                                                   LineBreakMode="TailTruncation"
+                                                   VerticalOptions="Center"
+                                                   IsVisible="{Binding HasBranch}" />
+
+                                            <HorizontalStackLayout Grid.Column="3"
+                                                                   Spacing="5"
+                                                                   VerticalOptions="Center"
+                                                                   IsVisible="{Binding HasRunning}">
+                                                <Border WidthRequest="6"
+                                                        HeightRequest="6"
+                                                        StrokeThickness="0"
+                                                        StrokeShape="Ellipse"
+                                                        VerticalOptions="Center"
+                                                        BackgroundColor="{StaticResource Success}" />
+                                                <Label Text="{Binding RunningCount}"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource Success}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+
+                                            <Label Grid.Column="4"
+                                                   Text="{Binding ProjectCountLabel}"
+                                                   Style="{StaticResource CaptionLabel}"
+                                                   VerticalOptions="Center" />
+
+                                            <Button Grid.Column="5"
+                                                    Text="Git diff"
+                                                    Style="{StaticResource ToolButton}"
+                                                    HeightRequest="26"
+                                                    FontSize="11"
+                                                    Padding="10,0"
+                                                    VerticalOptions="Center"
+                                                    IsVisible="{Binding HasGit}"
+                                                    Command="{Binding ShowDiffCommand}" />
+                                        </Grid>
+
+                                        <VerticalStackLayout IsVisible="{Binding IsExpanded}"
+                                                             Padding="0,0,0,8"
+                                                             BindableLayout.ItemsSource="{Binding Solutions}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:SolutionViewModel">
+                                                    <VerticalStackLayout>
+                                                        <Label Text="{Binding Name}"
+                                                               Style="{StaticResource SectionLabel}"
+                                                               Margin="32,6,12,4" />
+
+                                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Projects}">
+                                                            <BindableLayout.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ProjectViewModel">
+                                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                                                                          ColumnSpacing="10"
+                                                                          Padding="20,7,12,7"
+                                                                          BackgroundColor="{Binding IsSelected, Converter={StaticResource RowBackground}}">
+                                                                        <Grid.GestureRecognizers>
+                                                                            <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                                                        </Grid.GestureRecognizers>
+
+                                                                        <Border Grid.Column="0"
+                                                                                WidthRequest="8"
+                                                                                HeightRequest="8"
+                                                                                StrokeThickness="0"
+                                                                                StrokeShape="Ellipse"
+                                                                                VerticalOptions="Center"
+                                                                                BackgroundColor="{Binding State, Converter={StaticResource RunStateToColor}}" />
+
+                                                                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                                                                            <Label Text="{Binding Name}" FontSize="13" LineBreakMode="TailTruncation" />
+                                                                            <HorizontalStackLayout Spacing="6">
+                                                                                <Label Text="{Binding StatusText}"
+                                                                                       FontSize="11"
+                                                                                       TextColor="{Binding State, Converter={StaticResource RunStateToColor}}"
+                                                                                       IsVisible="{Binding HasStatusText}" />
+                                                                                <Label Text="{Binding PortLabel}"
+                                                                                       Style="{StaticResource MonoLabel}"
+                                                                                       FontSize="11"
+                                                                                       TextColor="{StaticResource Success}"
+                                                                                       IsVisible="{Binding HasPorts}" />
+                                                                                <Label Text="secrets"
+                                                                                       Style="{StaticResource CaptionLabel}"
+                                                                                       IsVisible="{Binding UsesUserSecrets}" />
+                                                                            </HorizontalStackLayout>
+                                                                        </VerticalStackLayout>
+
+                                                                        <Picker Grid.Column="2"
+                                                                                WidthRequest="176"
+                                                                                VerticalOptions="Center"
+                                                                                ItemsSource="{Binding Profiles}"
+                                                                                SelectedItem="{Binding SelectedProfile}"
+                                                                                IsEnabled="{Binding CanChangeProfile}" />
+
+                                                                        <Button Grid.Column="3"
+                                                                                Style="{StaticResource ActionButton}"
+                                                                                Text="{Binding ActionLabel}"
+                                                                                VerticalOptions="Center"
+                                                                                Command="{Binding ToggleCommand}"
+                                                                                BackgroundColor="{Binding IsRunning, Converter={StaticResource ActionBackground}}"
+                                                                                BorderColor="{Binding IsRunning, Converter={StaticResource ActionBorder}}"
+                                                                                TextColor="{Binding IsRunning, Converter={StaticResource ActionText}}" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </BindableLayout.ItemTemplate>
+                                                        </VerticalStackLayout>
+                                                    </VerticalStackLayout>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <VerticalStackLayout Grid.Row="0"
+                                     VerticalOptions="Center"
+                                     Spacing="10"
+                                     Padding="24"
+                                     IsVisible="{Binding HasEmptyMessage}">
+                    <Label Text="{Binding EmptyMessage}"
+                           Style="{StaticResource CaptionLabel}"
+                           FontSize="12"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <HorizontalStackLayout Grid.Row="1"
+                                       Spacing="8"
+                                       Padding="2,10,0,0"
+                                       IsVisible="{Binding IsScanning}">
+                    <ActivityIndicator IsRunning="True" WidthRequest="14" HeightRequest="14" VerticalOptions="Center" />
+                    <Label Text="Prohledávám repozitáře…" Style="{StaticResource CaptionLabel}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Grid>
+
+            <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Padding="0">
+                <Grid>
+
+                    <VerticalStackLayout VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Spacing="6"
+                                         IsVisible="{Binding HasSelectedProject, Converter={StaticResource InverseBool}}">
+                        <Label Text="Vyber projekt"
+                               FontSize="14"
+                               TextColor="{StaticResource TextSecondary}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="Zvol prostředí z launchSettings a spusť ho tlačítkem Run."
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+
+                    <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding HasSelectedProject}">
+
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,13" ColumnSpacing="10">
+                            <VerticalStackLayout Grid.Column="0" Spacing="3">
+                                <HorizontalStackLayout Spacing="9">
+                                    <Label Text="{Binding SelectedProject.Name}"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           VerticalOptions="Center" />
+                                    <Border BackgroundColor="{StaticResource SuccessSoft}"
+                                            Stroke="{StaticResource SuccessBorder}"
+                                            StrokeThickness="1"
+                                            StrokeShape="RoundRectangle 5"
+                                            Padding="7,2"
+                                            VerticalOptions="Center"
+                                            IsVisible="{Binding SelectedProject.HasPorts}">
+                                        <Label Text="{Binding SelectedProject.PortLabel}"
+                                               Style="{StaticResource MonoLabel}"
+                                               FontSize="11"
+                                               TextColor="{StaticResource Success}" />
+                                    </Border>
+                                </HorizontalStackLayout>
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding SelectedProject.SolutionName}" Style="{StaticResource CaptionLabel}" />
+                                    <Label Text="·" Style="{StaticResource CaptionLabel}" />
+                                    <Label Text="{Binding SelectedProject.SelectedProfile.Name}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           TextColor="{StaticResource TextSecondary}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                <Button Text="{Binding SelectedProject.DisplayUrl}"
+                                        Style="{StaticResource ToolButton}"
+                                        HeightRequest="28"
+                                        TextColor="{StaticResource Accent}"
+                                        IsVisible="{Binding SelectedProject.HasDisplayUrl}"
+                                        Command="{Binding SelectedProject.OpenUrlCommand}" />
+                                <Button Text="Vyčistit"
+                                        Style="{StaticResource ToolButton}"
+                                        HeightRequest="28"
+                                        Command="{Binding SelectedProject.ClearLogCommand}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+
+                        <Border Grid.Row="1"
+                                BackgroundColor="{StaticResource SurfaceRaised}"
+                                Stroke="{StaticResource BorderSoft}"
+                                StrokeThickness="0"
+                                Padding="16,8">
+                            <Label Text="{Binding SelectedProject.CommandLine}"
+                                   Style="{StaticResource MonoLabel}"
+                                   FontSize="11"
+                                   TextColor="{StaticResource TextMuted}"
+                                   LineBreakMode="TailTruncation" />
+                        </Border>
+
+                        <ScrollView Grid.Row="2" x:Name="LogScrollView" Padding="16,12">
+                            <Label x:Name="LogLabel"
+                                   Text="{Binding SelectedProject.LogText}"
+                                   Style="{StaticResource MonoLabel}"
+                                   LineBreakMode="WordWrap" />
+                        </ScrollView>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="0"
+              Grid.RowSpan="2"
+              RowDefinitions="Auto,*"
+              BackgroundColor="{StaticResource Canvas}"
+              IsVisible="{Binding GitDiff.IsOpen}">
+
+            <Border Grid.Row="0"
+                    BackgroundColor="{StaticResource Surface}"
+                    StrokeThickness="0"
+                    Padding="14,0">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" HeightRequest="52" ColumnSpacing="12">
+
+                    <Button Grid.Column="0"
+                            Text="&#x2190;"
+                            Style="{StaticResource ToolButton}"
+                            HeightRequest="28"
+                            WidthRequest="36"
+                            Padding="0"
+                            VerticalOptions="Center"
+                            Command="{Binding GitDiff.CloseCommand}" />
+
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="{Binding GitDiff.RepositoryName}" FontSize="14" FontAttributes="Bold" />
+                        <Label Text="{Binding GitDiff.FileCountLabel}" Style="{StaticResource CaptionLabel}" />
+                    </VerticalStackLayout>
+
+                    <Picker Grid.Column="2"
+                            WidthRequest="300"
+                            VerticalOptions="Center"
+                            ItemsSource="{Binding GitDiff.Sources}"
+                            SelectedItem="{Binding GitDiff.SelectedSource}" />
+
+                    <Label Grid.Column="4"
+                           Text="{Binding GitDiff.DiffSummary}"
+                           Style="{StaticResource MonoLabel}"
+                           FontSize="12"
+                           VerticalOptions="Center"
+                           IsVisible="{Binding GitDiff.HasDiffSummary}" />
+
+                    <Border Grid.Column="5"
+                            BackgroundColor="{StaticResource SurfaceRaised}"
+                            Stroke="{StaticResource Border}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 6"
+                            Padding="0"
+                            VerticalOptions="Center">
+                        <HorizontalStackLayout Spacing="0">
+                            <Button Text="Vedle sebe"
+                                    Style="{StaticResource SegmentButton}"
+                                    Command="{Binding GitDiff.ShowSideBySideCommand}"
+                                    BackgroundColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentBackground}}"
+                                    TextColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentText}}" />
+                            <BoxView WidthRequest="1" Color="{StaticResource Border}" />
+                            <Button Text="Řádkově"
+                                    Style="{StaticResource SegmentButton}"
+                                    Command="{Binding GitDiff.ShowInlineCommand}"
+                                    BackgroundColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentBackground}}"
+                                    TextColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentText}}" />
+                        </HorizontalStackLayout>
+                    </Border>
+
+                    <Button Grid.Column="6"
+                            Text="Načíst znovu"
+                            Style="{StaticResource ToolButton}"
+                            HeightRequest="28"
+                            VerticalOptions="Center"
+                            Command="{Binding GitDiff.RefreshCommand}" />
+                </Grid>
+            </Border>
+
+            <BoxView Grid.Row="0" HeightRequest="1" Color="{StaticResource Border}" VerticalOptions="End" />
+
+            <Grid Grid.Row="1" ColumnDefinitions="330,*" ColumnSpacing="14" Padding="14">
+
+                <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Padding="0">
+                    <Grid>
+                        <CollectionView ItemsSource="{Binding GitDiff.Files}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GitFileViewModel">
+                                    <Grid ColumnDefinitions="20,*"
+                                          ColumnSpacing="9"
+                                          Padding="12,7"
+                                          BackgroundColor="{Binding IsSelected, Converter={StaticResource RowBackground}}">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                        </Grid.GestureRecognizers>
+
+                                        <Label Grid.Column="0"
+                                               Text="{Binding StatusCode}"
+                                               TextColor="{Binding StatusColor}"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               VerticalOptions="Center" />
+
+                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                            <Label Text="{Binding FileName}" FontSize="12" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding DirectoryName}"
+                                                   Style="{StaticResource CaptionLabel}"
+                                                   FontSize="10"
+                                                   LineBreakMode="HeadTruncation"
+                                                   IsVisible="{Binding HasDirectory}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Label Text="{Binding GitDiff.EmptyListMessage}"
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               IsVisible="{Binding GitDiff.HasNoChanges}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Padding="0">
+                    <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding GitDiff.HasSelectedFile}">
+
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="16,11">
+                            <Label Grid.Column="0"
+                                   Text="{Binding GitDiff.SelectedPath}"
+                                   Style="{StaticResource MonoLabel}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource TextPrimary}"
+                                   LineBreakMode="HeadTruncation"
+                                   VerticalOptions="Center" />
+                            <Label Grid.Column="1"
+                                   Text="zobrazeno jen prvních 4000 řádků"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center"
+                                   IsVisible="{Binding GitDiff.IsTruncated}" />
+                        </Grid>
+
+                        <BoxView Grid.Row="1" HeightRequest="1" Color="{StaticResource BorderSoft}" />
+
+                        <Grid Grid.Row="2" ColumnDefinitions="*,14">
+                            <CollectionView x:Name="InlineDiffView"
+                                            Grid.Column="0"
+                                            ItemsSource="{Binding GitDiff.InlineLines}"
+                                            ItemTemplate="{StaticResource InlineSelector}"
+                                            IsVisible="{Binding GitDiff.IsInline}" />
+
+                            <CollectionView x:Name="SideDiffView"
+                                            Grid.Column="0"
+                                            ItemsSource="{Binding GitDiff.SideRows}"
+                                            ItemTemplate="{StaticResource SideSelector}"
+                                            IsVisible="{Binding GitDiff.IsSideBySide}" />
+
+                            <GraphicsView x:Name="MarkerView" Grid.Column="1" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="Center"
+                                     Spacing="6"
+                                     IsVisible="{Binding GitDiff.HasSelectedFile, Converter={StaticResource InverseBool}}">
+                    <Label Text="Žádné změny k zobrazení"
+                           FontSize="14"
+                           TextColor="{StaticResource TextSecondary}"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="Vyber soubor vlevo, nebo repozitář nemá rozpracované změny."
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     VerticalOptions="Center"
+                                     Spacing="8"
+                                     Padding="24"
+                                     IsVisible="{Binding GitDiff.HasError}">
+                    <Label Text="Git selhal"
+                           FontSize="14"
+                           TextColor="{StaticResource Danger}"
+                           HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding GitDiff.ErrorMessage}"
+                           Style="{StaticResource CaptionLabel}"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

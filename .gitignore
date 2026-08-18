@@ -1,0 +1,50 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+*.nuget.props
+*.nuget.targets
+
+## MSBuild / test results
+*.binlog
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## MAUI / .NET publish
+[Pp]ublish/
+*.publishsettings
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.msixupload
+AppPackages/
+BundleArtifacts/
+
+## OS files
+[Tt]humbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
