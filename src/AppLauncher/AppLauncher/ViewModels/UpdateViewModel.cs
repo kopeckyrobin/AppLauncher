@@ -182,12 +182,16 @@ public sealed class UpdateViewModel : ObservableBase
         try
         {
             await this._service.DownloadAsync(this.ReportProgress, CancellationToken.None);
-            this.SetStage(UpdateStage.ReadyToRestart);
         }
         catch (Exception)
         {
             this.SetStage(UpdateStage.Failed);
+            return;
         }
+
+        this.SetStage(UpdateStage.ReadyToRestart);
+
+        await this.RestartAsync();
     }
 
     private async Task RestartAsync()

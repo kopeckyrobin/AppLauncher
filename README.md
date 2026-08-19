@@ -28,7 +28,7 @@ Když máš deset mikroslužeb ve třech repozitářích, spouštění přes Vis
 | **Git** | Diff pracovního stromu i posledních 50 commitů, inline / side-by-side, minimapa změn |
 | **Commit & push** | `add --all` → `commit` → `push --set-upstream` přímo z aplikace |
 | **Běh na pozadí** | Zavření okna schová aplikaci do tray, běžící projekty jedou dál |
-| **Aktualizace** | Velopack, automatická kontrola GitHub Releases, ruční potvrzení restartu |
+| **Aktualizace** | Velopack, automatická kontrola GitHub Releases, jedním kliknutím stáhne a restartuje |
 
 ## Instalace
 
@@ -169,7 +169,9 @@ Výstup běžících procesů se sbírá do concurrent queue a do UI se přelév
 
 Postup vydání, verzování a lokální build instalátoru popisuje [RELEASE.md](RELEASE.md).
 
-Ve zkratce: GitHub → **Actions** → workflow **release** → **Run workflow** → zadat SemVer verzi. Workflow sestaví aplikaci, vytvoří Velopack balíčky, založí tag a publikuje GitHub Release. Nainstalovaná aplikace kontroluje aktualizace každých 30 minut a nabídne je tlačítkem v pravém horním rohu; aktualizace se nikdy neaplikuje sama, protože restart ukončí všechny běžící projekty.
+Ve zkratce: GitHub → **Actions** → workflow **release** → **Run workflow** → zadat SemVer verzi. Workflow sestaví aplikaci, vytvoří Velopack balíčky, založí tag a publikuje GitHub Release.
+
+Nainstalovaná aplikace kontroluje aktualizace při startu a pak každých 30 minut a nabídne je tlačítkem v pravém horním rohu. Kliknutí na **Aktualizovat** stáhne balíček a rovnou restartuje — bez druhého potvrzení. Jedinou výjimkou je situace, kdy něco běží: pak se aplikace před restartem zeptá, protože ukončí všechny spuštěné projekty. Když potvrzení odmítneš, stažená aktualizace zůstane připravená a spustíš ji později tlačítkem **Restartovat**. Sama se nikdy neaplikuje.
 
 Aktuálně běžící verze je vidět v hlavičce vedle názvu aplikace. U nainstalované verze ji hlásí Velopack, jinak se čte z `AssemblyInformationalVersion`.
 
