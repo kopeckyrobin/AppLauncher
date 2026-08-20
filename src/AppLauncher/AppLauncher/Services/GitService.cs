@@ -206,6 +206,18 @@ public sealed class GitService
             throw new InvalidOperationException(DescribeFailure("git commit", committed));
         }
 
+        return await this.PushAsync(repositoryPath, cancellationToken);
+    }
+
+    public async Task<string> PushAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
+
+        if (String.IsNullOrEmpty(branch))
+        {
+            throw new InvalidOperationException("Repozitář není na žádné větvi (detached HEAD).");
+        }
+
         GitCommandResult pushed = await this.RunAsync(
             repositoryPath,
             new[] { "push", "--set-upstream", "origin", branch },
@@ -217,6 +229,36 @@ public sealed class GitService
         }
 
         return branch;
+    }
+
+    public async Task<int> GetOutgoingCountAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult remote = await this.RunAsync(
+            repositoryPath,
+            new[] { "remote", "get-url", "origin" },
+            cancellationToken);
+
+        if (!remote.Success)
+        {
+            return 0;
+        }
+
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "rev-list", "--count", "HEAD", "--not", "--remotes=origin" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return 0;
+        }
+
+        if (!Int32.TryParse(result.Output.Trim(), out int count))
+        {
+            return 0;
+        }
+
+        return count;
     }
 
     public async Task<IReadOnlyList<GitBranch>> GetBranchesAsync(string repositoryPath, CancellationToken cancellationToken)

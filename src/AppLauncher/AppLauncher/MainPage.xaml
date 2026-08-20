@@ -558,8 +558,9 @@
                                     StrokeShape="RoundRectangle 5"
                                     Padding="7,1"
                                     VerticalOptions="Center"
-                                    IsVisible="{Binding GitDiff.HasBranch}">
-                                <Label Text="{Binding GitDiff.BranchName}"
+                                    IsVisible="{Binding GitDiff.HasBranch}"
+                                    ToolTipProperties.Text="{Binding GitDiff.BranchName}">
+                                <Label Text="{Binding GitDiff.BranchLabel}"
                                        Style="{StaticResource MonoLabel}"
                                        FontSize="11"
                                        TextColor="{StaticResource Accent}" />
@@ -569,7 +570,7 @@
                     </VerticalStackLayout>
 
                     <Picker Grid.Column="2"
-                            WidthRequest="300"
+                            WidthRequest="210"
                             VerticalOptions="Center"
                             ItemsSource="{Binding GitDiff.Sources}"
                             SelectedItem="{Binding GitDiff.SelectedSource}" />
@@ -578,13 +579,14 @@
 
                         <Grid ColumnDefinitions="*,Auto"
                               ColumnSpacing="8"
-                              IsVisible="{Binding GitDiff.CanCommit}">
+                              IsVisible="{Binding GitDiff.ShowCommitBar}">
 
                             <Entry Grid.Column="0"
                                    Placeholder="Zpráva commitu"
                                    Text="{Binding GitDiff.CommitMessage}"
                                    Style="{StaticResource FieldEntry}"
                                    VerticalOptions="Center"
+                                   IsVisible="{Binding GitDiff.ShowCommitMessage}"
                                    ReturnCommand="{Binding GitDiff.CommitAndPushCommand}" />
 
                             <Button Grid.Column="1"
