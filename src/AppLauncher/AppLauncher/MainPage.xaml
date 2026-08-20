@@ -518,7 +518,6 @@
                         <Editor Grid.Row="3"
                                 x:Name="LogEditor"
                                 Margin="10,6,10,10"
-                                Text="{Binding SelectedProject.LogText, Mode=OneWay}"
                                 Style="{StaticResource LogEditor}"
                                 IsReadOnly="True" />
                     </Grid>
@@ -575,24 +574,51 @@
                             ItemsSource="{Binding GitDiff.Sources}"
                             SelectedItem="{Binding GitDiff.SelectedSource}" />
 
-                    <Grid Grid.Column="3"
-                          ColumnDefinitions="*,Auto"
-                          ColumnSpacing="8"
-                          IsVisible="{Binding GitDiff.IsWorkingTree}">
+                    <Grid Grid.Column="3">
 
-                        <Entry Grid.Column="0"
-                               Placeholder="Zpráva commitu"
-                               Text="{Binding GitDiff.CommitMessage}"
-                               Style="{StaticResource FieldEntry}"
-                               VerticalOptions="Center"
-                               ReturnCommand="{Binding GitDiff.CommitAndPushCommand}" />
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8"
+                              IsVisible="{Binding GitDiff.CanCommit}">
 
-                        <Button Grid.Column="1"
-                                Text="{Binding GitDiff.CommitButtonText}"
-                                Style="{StaticResource ToolButton}"
-                                HeightRequest="28"
-                                VerticalOptions="Center"
-                                Command="{Binding GitDiff.CommitAndPushCommand}" />
+                            <Entry Grid.Column="0"
+                                   Placeholder="Zpráva commitu"
+                                   Text="{Binding GitDiff.CommitMessage}"
+                                   Style="{StaticResource FieldEntry}"
+                                   VerticalOptions="Center"
+                                   ReturnCommand="{Binding GitDiff.CommitAndPushCommand}" />
+
+                            <Button Grid.Column="1"
+                                    Text="{Binding GitDiff.CommitButtonText}"
+                                    Style="{StaticResource ToolButton}"
+                                    HeightRequest="28"
+                                    VerticalOptions="Center"
+                                    Command="{Binding GitDiff.CommitAndPushCommand}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,220,Auto"
+                              ColumnSpacing="8"
+                              HorizontalOptions="Start"
+                              IsVisible="{Binding GitDiff.CanSwitchBranch}">
+
+                            <Label Grid.Column="0"
+                                   Text="Větev"
+                                   Style="{StaticResource CaptionLabel}"
+                                   VerticalOptions="Center" />
+
+                            <Picker Grid.Column="1"
+                                    VerticalOptions="Center"
+                                    ItemsSource="{Binding GitDiff.Branches}"
+                                    ItemDisplayBinding="{Binding DisplayName}"
+                                    SelectedItem="{Binding GitDiff.SelectedBranch}"
+                                    IsEnabled="{Binding GitDiff.IsBranchIdle}" />
+
+                            <Button Grid.Column="2"
+                                    Text="{Binding GitDiff.FetchButtonText}"
+                                    Style="{StaticResource ToolButton}"
+                                    HeightRequest="28"
+                                    VerticalOptions="Center"
+                                    Command="{Binding GitDiff.FetchAndPullCommand}" />
+                        </Grid>
                     </Grid>
 
                     <Label Grid.Column="4"

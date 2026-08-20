@@ -12,6 +12,7 @@ public sealed class GitDiffViewModel : ObservableBase
     private readonly RelayCommand _showInlineCommand;
     private readonly RelayCommand _showSideBySideCommand;
     private readonly RelayCommand _commitAndPushCommand;
+    private readonly RelayCommand _fetchAndPullCommand;
     private readonly RelayCommand _findNextCommand;
     private readonly RelayCommand _findPreviousCommand;
     private readonly List<GitFileViewModel> _allFiles = new();
@@ -21,9 +22,11 @@ public sealed class GitDiffViewModel : ObservableBase
     private const int CommitCount = 50;
 
     private static readonly TimeSpan CommitTimeout = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan BranchTimeout = TimeSpan.FromMinutes(5);
 
     private CancellationTokenSource? _cancellation;
     private CancellationTokenSource? _commitCancellation;
+    private CancellationTokenSource? _branchCancellation;
     private DiffDocument? _document;
     private string _branchName = String.Empty;
     private string _fileFilter = String.Empty;
@@ -33,10 +36,14 @@ public sealed class GitDiffViewModel : ObservableBase
     private string _commitStatus = String.Empty;
     private bool _commitFailed;
     private bool _isCommitting;
+    private bool _isBranchBusy;
+    private bool _hasWorkingTreeChanges;
     private GitDiffSource? _selectedSource;
+    private GitBranch? _selectedBranch;
     private GitFileViewModel? _selectedFile;
     private string? _selectedCommitParent;
     private bool _isSwitchingSource;
+    private bool _isSwitchingBranch;
     private IReadOnlyList<DiffLine> _inlineLines = Array.Empty<DiffLine>();
     private IReadOnlyList<DiffRow> _sideRows = Array.Empty<DiffRow>();
     private IReadOnlyList<ChangeMarker> _markers = Array.Empty<ChangeMarker>();
@@ -56,15 +63,20 @@ public sealed class GitDiffViewModel : ObservableBase
         this._showInlineCommand = new RelayCommand(this.ShowInline);
         this._showSideBySideCommand = new RelayCommand(this.ShowSideBySide);
         this._commitAndPushCommand = new RelayCommand(this.CommitAndPush, this.CanCommitAndPush);
+        this._fetchAndPullCommand = new RelayCommand(this.FetchAndPull, this.CanFetchAndPull);
         this._findNextCommand = new RelayCommand(this.FindNext, this.HasMatches);
         this._findPreviousCommand = new RelayCommand(this.FindPrevious, this.HasMatches);
     }
 
     public event EventHandler<int>? MatchScrollRequested;
 
+    public event EventHandler<string>? BranchChanged;
+
     public ObservableCollection<GitFileViewModel> Files { get; } = new();
 
     public ObservableCollection<GitDiffSource> Sources { get; } = new();
+
+    public ObservableCollection<GitBranch> Branches { get; } = new();
 
     public GitDiffSource? SelectedSource
     {
@@ -79,6 +91,7 @@ public sealed class GitDiffViewModel : ObservableBase
             if (this.SetProperty(ref this._selectedSource, value))
             {
                 this.RaisePropertyChanged(nameof(this.IsWorkingTree));
+                this.RaisePropertyChanged(nameof(this.CanCommit));
                 this._commitAndPushCommand.RaiseCanExecuteChanged();
 
                 if (!this._isSwitchingSource)
@@ -86,6 +99,30 @@ public sealed class GitDiffViewModel : ObservableBase
                     this.ReloadFiles();
                 }
             }
+        }
+    }
+
+    public GitBranch? SelectedBranch
+    {
+        get { return this._selectedBranch; }
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (!this.SetProperty(ref this._selectedBranch, value))
+            {
+                return;
+            }
+
+            if (this._isSwitchingBranch)
+            {
+                return;
+            }
+
+            this.SwitchBranch(value);
         }
     }
 
@@ -112,6 +149,11 @@ public sealed class GitDiffViewModel : ObservableBase
     public System.Windows.Input.ICommand CommitAndPushCommand
     {
         get { return this._commitAndPushCommand; }
+    }
+
+    public System.Windows.Input.ICommand FetchAndPullCommand
+    {
+        get { return this._fetchAndPullCommand; }
     }
 
     public System.Windows.Input.ICommand FindNextCommand
@@ -196,6 +238,63 @@ public sealed class GitDiffViewModel : ObservableBase
         get { return this._selectedSource is null || this._selectedSource.Kind == GitDiffSourceKind.WorkingTree; }
     }
 
+    public bool HasWorkingTreeChanges
+    {
+        get { return this._hasWorkingTreeChanges; }
+        private set
+        {
+            if (this.SetProperty(ref this._hasWorkingTreeChanges, value))
+            {
+                this.RaisePropertyChanged(nameof(this.CanCommit));
+                this.RaisePropertyChanged(nameof(this.CanSwitchBranch));
+                this._commitAndPushCommand.RaiseCanExecuteChanged();
+                this._fetchAndPullCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool CanCommit
+    {
+        get { return this.IsWorkingTree && this._hasWorkingTreeChanges; }
+    }
+
+    public bool CanSwitchBranch
+    {
+        get { return !this._hasWorkingTreeChanges; }
+    }
+
+    public bool IsBranchBusy
+    {
+        get { return this._isBranchBusy; }
+        private set
+        {
+            if (this.SetProperty(ref this._isBranchBusy, value))
+            {
+                this.RaisePropertyChanged(nameof(this.IsBranchIdle));
+                this.RaisePropertyChanged(nameof(this.FetchButtonText));
+                this._fetchAndPullCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool IsBranchIdle
+    {
+        get { return !this._isBranchBusy && !this._isCommitting; }
+    }
+
+    public string FetchButtonText
+    {
+        get
+        {
+            if (this._isBranchBusy)
+            {
+                return "Zrušit";
+            }
+
+            return "Fetch & Pull";
+        }
+    }
+
     public string CommitMessage
     {
         get { return this._commitMessage; }
@@ -216,7 +315,9 @@ public sealed class GitDiffViewModel : ObservableBase
             if (this.SetProperty(ref this._isCommitting, value))
             {
                 this.RaisePropertyChanged(nameof(this.CommitButtonText));
+                this.RaisePropertyChanged(nameof(this.IsBranchIdle));
                 this._commitAndPushCommand.RaiseCanExecuteChanged();
+                this._fetchAndPullCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -451,6 +552,8 @@ public sealed class GitDiffViewModel : ObservableBase
         this.CommitMessage = String.Empty;
         this.CommitStatus = String.Empty;
         this.CommitFailed = false;
+        this.HasWorkingTreeChanges = false;
+        this.ClearBranches();
         this.IsOpen = true;
         this.Refresh();
     }
@@ -464,6 +567,7 @@ public sealed class GitDiffViewModel : ObservableBase
         this.SelectedSource = null;
         this._selectedSource = null;
         this._isSwitchingSource = false;
+        this.ClearBranches();
         this._allFiles.Clear();
         this.Files.Clear();
         this.SelectedFile = null;
@@ -635,6 +739,7 @@ public sealed class GitDiffViewModel : ObservableBase
         }
 
         return this.IsWorkingTree
+            && !this._isBranchBusy
             && this._allFiles.Count > 0
             && !String.IsNullOrEmpty(this._commitMessage.Trim());
     }
@@ -686,6 +791,141 @@ public sealed class GitDiffViewModel : ObservableBase
             this._commitCancellation = null;
             cancellation.Dispose();
         }
+    }
+
+    private bool CanFetchAndPull()
+    {
+        if (this._isBranchBusy)
+        {
+            return true;
+        }
+
+        return !this._isCommitting && !this._hasWorkingTreeChanges && !String.IsNullOrEmpty(this._repositoryPath);
+    }
+
+    private void FetchAndPull()
+    {
+        if (this._isBranchBusy)
+        {
+            this._branchCancellation?.Cancel();
+            return;
+        }
+
+        _ = this.FetchAndPullAsync();
+    }
+
+    private async Task FetchAndPullAsync()
+    {
+        CancellationTokenSource cancellation = new(BranchTimeout);
+
+        this._branchCancellation = cancellation;
+        this.IsBranchBusy = true;
+        this.CommitFailed = false;
+        this.CommitStatus = "Načítám z origin…";
+
+        try
+        {
+            string summary = await this._gitService.FetchAndPullAsync(this._repositoryPath, cancellation.Token);
+
+            this.CommitStatus = String.IsNullOrEmpty(summary) ? "Fetch a pull dokončen." : Condense(summary);
+            this.Refresh();
+        }
+        catch (OperationCanceledException)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = "Fetch a pull zrušen.";
+        }
+        catch (Exception exception)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = Condense(exception.Message);
+        }
+        finally
+        {
+            this.IsBranchBusy = false;
+            this._branchCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void SwitchBranch(GitBranch target)
+    {
+        if (!target.IsRemoteOnly && String.Equals(target.Name, this._branchName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (this._hasWorkingTreeChanges)
+        {
+            this.RestoreBranchSelection();
+            this.CommitFailed = true;
+            this.CommitStatus = "Přepnutí větve vyžaduje čistý pracovní strom.";
+            return;
+        }
+
+        _ = this.SwitchBranchAsync(target);
+    }
+
+    private async Task SwitchBranchAsync(GitBranch target)
+    {
+        CancellationTokenSource cancellation = new(BranchTimeout);
+
+        this._branchCancellation = cancellation;
+        this.IsBranchBusy = true;
+        this.CommitFailed = false;
+        this.CommitStatus = target.IsRemoteOnly
+            ? $"Vytvářím lokální větev {target.Name} z origin…"
+            : $"Přepínám na větev {target.Name}…";
+
+        try
+        {
+            await this._gitService.CheckoutBranchAsync(this._repositoryPath, target, cancellation.Token);
+
+            this.CommitStatus = target.IsRemoteOnly
+                ? $"Větev {target.Name} vytvořena z origin/{target.Name}."
+                : $"Přepnuto na větev {target.Name}.";
+
+            this.BranchChanged?.Invoke(this, this._repositoryPath);
+            this.Refresh();
+        }
+        catch (OperationCanceledException)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = "Přepnutí větve zrušeno.";
+            this.RestoreBranchSelection();
+        }
+        catch (Exception exception)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = Condense(exception.Message);
+            this.RestoreBranchSelection();
+        }
+        finally
+        {
+            this.IsBranchBusy = false;
+            this._branchCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void ClearBranches()
+    {
+        this._isSwitchingBranch = true;
+        this.Branches.Clear();
+        this._selectedBranch = null;
+        this.RaisePropertyChanged(nameof(this.SelectedBranch));
+        this._isSwitchingBranch = false;
+    }
+
+    private void RestoreBranchSelection()
+    {
+        this._isSwitchingBranch = true;
+
+        this._selectedBranch = this.Branches.FirstOrDefault(
+            branch => !branch.IsRemoteOnly && String.Equals(branch.Name, this._branchName, StringComparison.Ordinal));
+
+        this.RaisePropertyChanged(nameof(this.SelectedBranch));
+        this._isSwitchingBranch = false;
     }
 
     private static string Condense(string message)
@@ -758,6 +998,29 @@ public sealed class GitDiffViewModel : ObservableBase
                 return;
             }
 
+            IReadOnlyList<GitBranch> branches = await this._gitService.GetBranchesAsync(
+                this._repositoryPath,
+                cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            this._isSwitchingBranch = true;
+            this.Branches.Clear();
+
+            foreach (GitBranch item in branches)
+            {
+                this.Branches.Add(item);
+            }
+
+            this._selectedBranch = this.Branches.FirstOrDefault(
+                item => !item.IsRemoteOnly && String.Equals(item.Name, branch, StringComparison.Ordinal));
+
+            this.RaisePropertyChanged(nameof(this.SelectedBranch));
+            this._isSwitchingBranch = false;
+
             string? previousSha = this._selectedSource?.Sha;
             bool wasCommit = this._selectedSource is not null && this._selectedSource.Kind == GitDiffSourceKind.Commit;
 
@@ -789,6 +1052,7 @@ public sealed class GitDiffViewModel : ObservableBase
         catch (Exception exception)
         {
             this._isSwitchingSource = false;
+            this._isSwitchingBranch = false;
             this.ErrorMessage = exception.Message;
         }
 
@@ -823,11 +1087,16 @@ public sealed class GitDiffViewModel : ObservableBase
                     source.Sha,
                     this._selectedCommitParent,
                     cancellationToken);
+
+                this.HasWorkingTreeChanges = await this._gitService.HasWorkingTreeChangesAsync(
+                    this._repositoryPath,
+                    cancellationToken);
             }
             else
             {
                 this._selectedCommitParent = null;
                 changes = await this._gitService.GetChangedFilesAsync(this._repositoryPath, cancellationToken);
+                this.HasWorkingTreeChanges = changes.Count > 0;
             }
 
             if (cancellationToken.IsCancellationRequested)

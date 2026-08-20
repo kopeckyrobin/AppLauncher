@@ -83,49 +83,61 @@ public partial class MainPage : ContentPage
             this._observedProject.PropertyChanged += this.OnSelectedProjectPropertyChanged;
         }
 
-        this.ScrollLogToEnd();
+        this.RefreshLog();
     }
 
     private void OnSelectedProjectPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
     {
         if (eventArgs.PropertyName == nameof(ProjectViewModel.LogText))
         {
-            this.ScrollLogToEnd();
+            this.RefreshLog();
         }
+    }
+
+    private void RefreshLog()
+    {
+        this.Dispatcher.Dispatch(() =>
+        {
+            string text = this._viewModel.SelectedProject?.LogText ?? String.Empty;
+
+            if (this.LogEditor.Text != text)
+            {
+                this.LogEditor.Text = text;
+            }
+
+            this.ScrollLogToEnd();
+        });
     }
 
     private void ScrollLogToEnd()
     {
-        this.Dispatcher.Dispatch(() =>
-        {
 #if WINDOWS
-            if (this.LogEditor.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBox textBox)
-            {
-                return;
-            }
+        if (this.LogEditor.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBox textBox)
+        {
+            return;
+        }
 
-            Microsoft.UI.Xaml.Controls.ScrollViewer? viewer = FindScrollViewer(textBox);
+        Microsoft.UI.Xaml.Controls.ScrollViewer? viewer = FindScrollViewer(textBox);
 
-            if (viewer is null)
-            {
-                return;
-            }
+        if (viewer is null)
+        {
+            return;
+        }
 
-            if (this._viewModel.SelectedProject is not null && this._viewModel.SelectedProject.HasSearch)
-            {
-                viewer.ChangeView(null, 0, null, true);
-                return;
-            }
+        if (this._viewModel.SelectedProject is not null && this._viewModel.SelectedProject.HasSearch)
+        {
+            viewer.ChangeView(null, 0, null, true);
+            return;
+        }
 
-            if (textBox.SelectionLength > 0)
-            {
-                return;
-            }
+        if (textBox.SelectionLength > 0)
+        {
+            return;
+        }
 
-            viewer.UpdateLayout();
-            viewer.ChangeView(null, viewer.ScrollableHeight, null, true);
+        viewer.UpdateLayout();
+        viewer.ChangeView(null, viewer.ScrollableHeight, null, true);
 #endif
-        });
     }
 
 #if WINDOWS

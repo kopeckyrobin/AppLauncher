@@ -1,4 +1,4 @@
-namespace AppLauncher.Models;
+﻿namespace AppLauncher.Models;
 
 public enum DiffLineKind
 {
@@ -22,6 +22,31 @@ public sealed class GitCommit
     public required string ShortSha { get; init; }
 
     public required string Subject { get; init; }
+}
+
+public sealed class GitBranch
+{
+    public required string Name { get; init; }
+
+    public required bool IsRemoteOnly { get; init; }
+
+    public string DisplayName
+    {
+        get
+        {
+            if (this.IsRemoteOnly)
+            {
+                return $"origin/{this.Name}";
+            }
+
+            return this.Name;
+        }
+    }
+
+    public override string ToString()
+    {
+        return this.DisplayName;
+    }
 }
 
 public sealed class GitDiffSource

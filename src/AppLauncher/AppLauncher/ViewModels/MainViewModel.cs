@@ -30,6 +30,8 @@ public sealed class MainViewModel : ObservableBase
         this._stopAllCommand = new RelayCommand(this.StopAll);
         this._changeRootCommand = new RelayCommand(this.ChangeRoot);
         this._openRootCommand = new RelayCommand(this.OpenRoot);
+
+        this.GitDiff.BranchChanged += this.OnGitBranchChanged;
     }
 
     public ObservableCollection<RepositoryViewModel> Repositories { get; } = new();
@@ -338,6 +340,17 @@ public sealed class MainViewModel : ObservableBase
     private void OnShowDiff(RepositoryViewModel repository)
     {
         this.GitDiff.Open(repository.Name, repository.DirectoryPath);
+    }
+
+    private void OnGitBranchChanged(object? sender, string repositoryPath)
+    {
+        foreach (RepositoryViewModel repository in this.Repositories)
+        {
+            if (String.Equals(repository.DirectoryPath, repositoryPath, StringComparison.OrdinalIgnoreCase))
+            {
+                repository.RefreshBranch();
+            }
+        }
     }
 
     private void OnRunStateChanged()

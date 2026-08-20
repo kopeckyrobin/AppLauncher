@@ -219,6 +219,141 @@ public sealed class GitService
         return branch;
     }
 
+    public async Task<IReadOnlyList<GitBranch>> GetBranchesAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes/origin" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return Array.Empty<GitBranch>();
+        }
+
+        const string localPrefix = "refs/heads/";
+        const string remotePrefix = "refs/remotes/origin/";
+
+        List<string> locals = new();
+        List<string> remotes = new();
+
+        foreach (string line in result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string reference = line.Trim();
+
+            if (reference.StartsWith(localPrefix, StringComparison.Ordinal))
+            {
+                locals.Add(reference[localPrefix.Length..]);
+                continue;
+            }
+
+            if (!reference.StartsWith(remotePrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string name = reference[remotePrefix.Length..];
+
+            if (name == "HEAD")
+            {
+                continue;
+            }
+
+            remotes.Add(name);
+        }
+
+        locals.Sort(StringComparer.OrdinalIgnoreCase);
+        remotes.Sort(StringComparer.OrdinalIgnoreCase);
+
+        HashSet<string> known = new(locals, StringComparer.Ordinal);
+        List<GitBranch> branches = new();
+
+        foreach (string name in locals)
+        {
+            branches.Add(new GitBranch { Name = name, IsRemoteOnly = false });
+        }
+
+        foreach (string name in remotes)
+        {
+            if (known.Contains(name))
+            {
+                continue;
+            }
+
+            branches.Add(new GitBranch { Name = name, IsRemoteOnly = true });
+        }
+
+        return branches;
+    }
+
+    public async Task<bool> HasWorkingTreeChangesAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "status", "--porcelain", "-z", "-uall" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return true;
+        }
+
+        return result.Output.Split('\0', StringSplitOptions.RemoveEmptyEntries).Length > 0;
+    }
+
+    public async Task CheckoutBranchAsync(string repositoryPath, GitBranch branch, CancellationToken cancellationToken)
+    {
+        string[] arguments = branch.IsRemoteOnly
+            ? new[] { "checkout", "-b", branch.Name, "--track", "origin/" + branch.Name }
+            : new[] { "checkout", branch.Name };
+
+        GitCommandResult result = await this.RunAsync(repositoryPath, arguments, cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git checkout", result));
+        }
+    }
+
+    public async Task<string> FetchAndPullAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult fetched = await this.RunAsync(
+            repositoryPath,
+            new[] { "fetch", "--prune", "origin" },
+            cancellationToken);
+
+        if (!fetched.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git fetch", fetched));
+        }
+
+        string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
+
+        if (String.IsNullOrEmpty(branch))
+        {
+            throw new InvalidOperationException("Repozitář není na žádné větvi (detached HEAD).");
+        }
+
+        GitCommandResult pulled = await this.RunAsync(
+            repositoryPath,
+            new[] { "pull", "--ff-only" },
+            cancellationToken);
+
+        if (!pulled.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git pull", pulled));
+        }
+
+        string summary = pulled.Output.Trim();
+
+        if (String.IsNullOrEmpty(summary))
+        {
+            summary = pulled.Error.Trim();
+        }
+
+        return summary;
+    }
+
     private static string DescribeFailure(string command, GitCommandResult result)
     {
         if (!String.IsNullOrEmpty(result.Error))

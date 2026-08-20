@@ -9,6 +9,7 @@ public sealed class RepositoryViewModel : ObservableBase
     private readonly RelayCommand _toggleExpandCommand;
     private readonly RelayCommand _showDiffCommand;
     private bool _isExpanded;
+    private string _currentBranch = String.Empty;
 
     public RepositoryViewModel(
         string name,
@@ -26,18 +27,33 @@ public sealed class RepositoryViewModel : ObservableBase
         this._toggleExpandCommand = new RelayCommand(this.ToggleExpand);
         this._showDiffCommand = new RelayCommand(this.ShowDiff);
         this.HasGit = GitService.IsRepository(directoryPath);
-        this.CurrentBranch = this.HasGit ? GitService.ReadCurrentBranch(directoryPath) : String.Empty;
+        this.RefreshBranch();
 
         this.Projects = solutions.SelectMany(solution => solution.Projects).ToList();
     }
 
     public bool HasGit { get; }
 
-    public string CurrentBranch { get; }
+    public string CurrentBranch
+    {
+        get { return this._currentBranch; }
+        private set
+        {
+            if (this.SetProperty(ref this._currentBranch, value))
+            {
+                this.RaisePropertyChanged(nameof(this.HasBranch));
+            }
+        }
+    }
 
     public bool HasBranch
     {
         get { return !String.IsNullOrEmpty(this.CurrentBranch); }
+    }
+
+    public void RefreshBranch()
+    {
+        this.CurrentBranch = this.HasGit ? GitService.ReadCurrentBranch(this.DirectoryPath) : String.Empty;
     }
 
     public string Name { get; }
