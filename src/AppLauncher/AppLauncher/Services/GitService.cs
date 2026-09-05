@@ -177,7 +177,7 @@ public sealed class GitService
         return result.Output.Trim();
     }
 
-    public async Task<string> CommitAndPushAsync(string repositoryPath, string message, CancellationToken cancellationToken)
+    public async Task<GitPushResult> CommitAndPushAsync(string repositoryPath, string message, CancellationToken cancellationToken)
     {
         string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
 
@@ -209,7 +209,7 @@ public sealed class GitService
         return await this.PushAsync(repositoryPath, cancellationToken);
     }
 
-    public async Task<string> PushAsync(string repositoryPath, CancellationToken cancellationToken)
+    public async Task<GitPushResult> PushAsync(string repositoryPath, CancellationToken cancellationToken)
     {
         string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
 
@@ -220,7 +220,7 @@ public sealed class GitService
 
         GitCommandResult pushed = await this.RunAsync(
             repositoryPath,
-            new[] { "push", "--set-upstream", "origin", branch },
+            new[] { "push", "--porcelain", "--set-upstream", "origin", branch },
             cancellationToken);
 
         if (!pushed.Success)
@@ -228,19 +228,58 @@ public sealed class GitService
             throw new InvalidOperationException(DescribeFailure("git push", pushed));
         }
 
-        return branch;
+        char flag = ReadPushFlag(pushed.Output);
+
+        return new GitPushResult
+        {
+            Branch = branch,
+            WasUpToDate = flag == '=',
+            CreatedBranch = flag == '*'
+        };
     }
 
-    public async Task<int> GetOutgoingCountAsync(string repositoryPath, CancellationToken cancellationToken)
+    private static char ReadPushFlag(string output)
     {
+        foreach (string line in output.Split('\n'))
+        {
+            if (line.IndexOf('\t') != 1)
+            {
+                continue;
+            }
+
+            if (!line.Contains("refs/heads/", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return line[0];
+        }
+
+        return ' ';
+    }
+
+    public async Task<GitPushState> GetPushStateAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult head = await this.RunAsync(
+            repositoryPath,
+            new[] { "rev-parse", "--verify", "--quiet", "HEAD" },
+            cancellationToken);
+
+        bool hasCommits = head.Success && !String.IsNullOrEmpty(head.Output.Trim());
+
         GitCommandResult remote = await this.RunAsync(
             repositoryPath,
             new[] { "remote", "get-url", "origin" },
             cancellationToken);
 
-        if (!remote.Success)
+        if (!remote.Success || !hasCommits)
         {
-            return 0;
+            return new GitPushState
+            {
+                HasRemote = remote.Success,
+                HasCommits = hasCommits,
+                OutgoingCount = 0
+            };
         }
 
         GitCommandResult result = await this.RunAsync(
@@ -248,17 +287,19 @@ public sealed class GitService
             new[] { "rev-list", "--count", "HEAD", "--not", "--remotes=origin" },
             cancellationToken);
 
-        if (!result.Success)
+        int count = 0;
+
+        if (result.Success)
         {
-            return 0;
+            Int32.TryParse(result.Output.Trim(), out count);
         }
 
-        if (!Int32.TryParse(result.Output.Trim(), out int count))
+        return new GitPushState
         {
-            return 0;
-        }
-
-        return count;
+            HasRemote = true,
+            HasCommits = true,
+            OutgoingCount = count
+        };
     }
 
     public async Task<IReadOnlyList<GitBranch>> GetBranchesAsync(string repositoryPath, CancellationToken cancellationToken)
@@ -357,7 +398,7 @@ public sealed class GitService
         }
     }
 
-    public async Task<string> FetchAndPullAsync(string repositoryPath, CancellationToken cancellationToken)
+    public async Task FetchAsync(string repositoryPath, CancellationToken cancellationToken)
     {
         GitCommandResult fetched = await this.RunAsync(
             repositoryPath,
@@ -368,6 +409,11 @@ public sealed class GitService
         {
             throw new InvalidOperationException(DescribeFailure("git fetch", fetched));
         }
+    }
+
+    public async Task<string> FetchAndPullAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        await this.FetchAsync(repositoryPath, cancellationToken);
 
         string branch = await this.GetCurrentBranchAsync(repositoryPath, cancellationToken);
 
@@ -394,6 +440,125 @@ public sealed class GitService
         }
 
         return summary;
+    }
+
+    public async Task<IReadOnlyList<GitStash>> GetStashesAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "stash", "list", "--format=%gd%x1f%gs%x1e" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return Array.Empty<GitStash>();
+        }
+
+        List<GitStash> stashes = new();
+
+        foreach (string record in result.Output.Split('\u001e', StringSplitOptions.RemoveEmptyEntries))
+        {
+            string[] fields = record.Trim('\n', '\r').Split('\u001f');
+
+            if (fields.Length < 2)
+            {
+                continue;
+            }
+
+            string name = fields[0].Trim();
+
+            if (String.IsNullOrEmpty(name))
+            {
+                continue;
+            }
+
+            stashes.Add(new GitStash
+            {
+                Index = stashes.Count,
+                Name = name,
+                Subject = fields[1].Trim()
+            });
+        }
+
+        return stashes;
+    }
+
+    public async Task<bool> StashPushAsync(string repositoryPath, string message, CancellationToken cancellationToken)
+    {
+        string before = await this.ReadStashHeadAsync(repositoryPath, cancellationToken);
+
+        List<string> arguments = new() { "stash", "push", "--include-untracked" };
+
+        if (!String.IsNullOrEmpty(message))
+        {
+            arguments.Add("--message");
+            arguments.Add(message);
+        }
+
+        GitCommandResult result = await this.RunAsync(repositoryPath, arguments.ToArray(), cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git stash push", result));
+        }
+
+        string after = await this.ReadStashHeadAsync(repositoryPath, cancellationToken);
+
+        return !String.Equals(before, after, StringComparison.Ordinal);
+    }
+
+    public async Task StashPopAsync(string repositoryPath, GitStash stash, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "stash", "pop", stash.Name },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git stash pop", result));
+        }
+    }
+
+    public async Task StashApplyAsync(string repositoryPath, GitStash stash, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "stash", "apply", stash.Name },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git stash apply", result));
+        }
+    }
+
+    public async Task StashDropAsync(string repositoryPath, GitStash stash, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "stash", "drop", stash.Name },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git stash drop", result));
+        }
+    }
+
+    private async Task<string> ReadStashHeadAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "rev-parse", "--verify", "--quiet", "refs/stash" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return String.Empty;
+        }
+
+        return result.Output.Trim();
     }
 
     private static string DescribeFailure(string command, GitCommandResult result)

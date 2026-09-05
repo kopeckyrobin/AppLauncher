@@ -262,7 +262,7 @@
                                 <Border Style="{StaticResource PanelBorder}" Padding="0">
                                     <VerticalStackLayout>
 
-                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto"
                                               ColumnSpacing="8"
                                               Padding="12,9,10,9">
                                             <Grid.GestureRecognizers>
@@ -312,13 +312,38 @@
                                                    VerticalOptions="Center" />
 
                                             <Button Grid.Column="5"
-                                                    Text="Git diff"
+                                                    Text="&#xED25;"
+                                                    Style="{StaticResource ToolButton}"
+                                                    FontFamily="Segoe MDL2 Assets"
+                                                    HeightRequest="26"
+                                                    WidthRequest="32"
+                                                    FontSize="15"
+                                                    Padding="0"
+                                                    VerticalOptions="Center"
+                                                    ToolTipProperties.Text="Otevřít složku v Průzkumníku"
+                                                    Command="{Binding OpenFolderCommand}" />
+
+                                            <Button Grid.Column="6"
+                                                    Text="&#xE756;"
+                                                    Style="{StaticResource ToolButton}"
+                                                    FontFamily="Segoe MDL2 Assets"
+                                                    HeightRequest="26"
+                                                    WidthRequest="32"
+                                                    FontSize="15"
+                                                    Padding="0"
+                                                    VerticalOptions="Center"
+                                                    ToolTipProperties.Text="Otevřít PowerShell ve složce"
+                                                    Command="{Binding OpenTerminalCommand}" />
+
+                                            <Button Grid.Column="7"
+                                                    ImageSource="git_branch.png"
                                                     Style="{StaticResource ToolButton}"
                                                     HeightRequest="26"
-                                                    FontSize="11"
-                                                    Padding="10,0"
+                                                    WidthRequest="32"
+                                                    Padding="0"
                                                     VerticalOptions="Center"
                                                     IsVisible="{Binding HasGit}"
+                                                    ToolTipProperties.Text="Git diff"
                                                     Command="{Binding ShowDiffCommand}" />
                                         </Grid>
 
@@ -527,302 +552,393 @@
 
         <Grid Grid.Row="0"
               Grid.RowSpan="2"
-              RowDefinitions="Auto,Auto,*"
               BackgroundColor="{StaticResource Canvas}"
               IsVisible="{Binding GitDiff.IsOpen}">
 
-            <Border Grid.Row="0"
-                    BackgroundColor="{StaticResource Surface}"
-                    StrokeThickness="0"
-                    Padding="14,0">
-                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" HeightRequest="52" ColumnSpacing="12">
+            <Grid RowDefinitions="Auto,Auto,Auto,*">
 
-                    <Button Grid.Column="0"
-                            Text="&#x2190;"
-                            Style="{StaticResource ToolButton}"
-                            HeightRequest="28"
-                            WidthRequest="36"
-                            Padding="0"
-                            VerticalOptions="Center"
-                            Command="{Binding GitDiff.CloseCommand}" />
+                <Border Grid.Row="0"
+                        BackgroundColor="{StaticResource Surface}"
+                        StrokeThickness="0"
+                        Padding="14,0">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" HeightRequest="52" ColumnSpacing="12">
 
-                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                        <HorizontalStackLayout Spacing="8">
-                            <Label Text="{Binding GitDiff.RepositoryName}"
-                                   FontSize="14"
-                                   FontAttributes="Bold"
-                                   VerticalOptions="Center" />
-                            <Border BackgroundColor="{StaticResource AccentSoft}"
-                                    Stroke="{StaticResource AccentBorder}"
-                                    StrokeThickness="1"
-                                    StrokeShape="RoundRectangle 5"
-                                    Padding="7,1"
-                                    VerticalOptions="Center"
-                                    IsVisible="{Binding GitDiff.HasBranch}"
-                                    ToolTipProperties.Text="{Binding GitDiff.BranchName}">
-                                <Label Text="{Binding GitDiff.BranchLabel}"
-                                       Style="{StaticResource MonoLabel}"
-                                       FontSize="11"
-                                       TextColor="{StaticResource Accent}" />
-                            </Border>
-                        </HorizontalStackLayout>
-                        <Label Text="{Binding GitDiff.FileCountLabel}" Style="{StaticResource CaptionLabel}" />
-                    </VerticalStackLayout>
+                        <Button Grid.Column="0"
+                                Text="&#x2190;"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="28"
+                                WidthRequest="36"
+                                Padding="0"
+                                VerticalOptions="Center"
+                                Command="{Binding GitDiff.CloseCommand}" />
 
-                    <Picker Grid.Column="2"
-                            WidthRequest="210"
-                            VerticalOptions="Center"
-                            ItemsSource="{Binding GitDiff.Sources}"
-                            SelectedItem="{Binding GitDiff.SelectedSource}" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                            <HorizontalStackLayout Spacing="8">
+                                <Label Text="{Binding GitDiff.RepositoryName}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       VerticalOptions="Center" />
+                                <Border BackgroundColor="{StaticResource AccentSoft}"
+                                        Stroke="{StaticResource AccentBorder}"
+                                        StrokeThickness="1"
+                                        StrokeShape="RoundRectangle 5"
+                                        Padding="7,1"
+                                        VerticalOptions="Center"
+                                        IsVisible="{Binding GitDiff.HasBranch}"
+                                        ToolTipProperties.Text="{Binding GitDiff.BranchName}">
+                                    <Label Text="{Binding GitDiff.BranchLabel}"
+                                           Style="{StaticResource MonoLabel}"
+                                           FontSize="11"
+                                           TextColor="{StaticResource Accent}" />
+                                </Border>
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding GitDiff.FileCountLabel}" Style="{StaticResource CaptionLabel}" />
+                        </VerticalStackLayout>
 
-                    <Grid Grid.Column="3">
+                        <Picker Grid.Column="2"
+                                WidthRequest="210"
+                                VerticalOptions="Center"
+                                ItemsSource="{Binding GitDiff.Sources}"
+                                SelectedItem="{Binding GitDiff.SelectedSource}" />
 
-                        <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="8"
-                              IsVisible="{Binding GitDiff.ShowCommitBar}">
+                        <Grid Grid.Column="3">
 
-                            <Entry Grid.Column="0"
-                                   Placeholder="Zpráva commitu"
+                            <Entry Placeholder="Zpráva commitu"
                                    Text="{Binding GitDiff.CommitMessage}"
                                    Style="{StaticResource FieldEntry}"
                                    VerticalOptions="Center"
-                                   IsVisible="{Binding GitDiff.ShowCommitMessage}"
+                                   IsVisible="{Binding GitDiff.ShowCommitBar}"
                                    ReturnCommand="{Binding GitDiff.CommitAndPushCommand}" />
 
-                            <Button Grid.Column="1"
-                                    Text="{Binding GitDiff.CommitButtonText}"
-                                    Style="{StaticResource ToolButton}"
-                                    HeightRequest="28"
-                                    VerticalOptions="Center"
-                                    Command="{Binding GitDiff.CommitAndPushCommand}" />
+                            <Grid ColumnDefinitions="Auto,220"
+                                  ColumnSpacing="8"
+                                  HorizontalOptions="Start"
+                                  IsVisible="{Binding GitDiff.CanSwitchBranch}">
+
+                                <Label Grid.Column="0"
+                                       Text="Větev"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+
+                                <Picker Grid.Column="1"
+                                        VerticalOptions="Center"
+                                        ItemsSource="{Binding GitDiff.Branches}"
+                                        ItemDisplayBinding="{Binding DisplayName}"
+                                        SelectedItem="{Binding GitDiff.SelectedBranch}"
+                                        IsEnabled="{Binding GitDiff.IsBranchIdle}" />
+                            </Grid>
                         </Grid>
 
-                        <Grid ColumnDefinitions="Auto,220,Auto"
-                              ColumnSpacing="8"
-                              HorizontalOptions="Start"
-                              IsVisible="{Binding GitDiff.CanSwitchBranch}">
+                        <Label Grid.Column="4"
+                               Text="{Binding GitDiff.DiffSummary}"
+                               Style="{StaticResource MonoLabel}"
+                               FontSize="12"
+                               VerticalOptions="Center"
+                               IsVisible="{Binding GitDiff.HasDiffSummary}" />
 
-                            <Label Grid.Column="0"
-                                   Text="Větev"
-                                   Style="{StaticResource CaptionLabel}"
-                                   VerticalOptions="Center" />
+                        <Border Grid.Column="5"
+                                BackgroundColor="{StaticResource SurfaceRaised}"
+                                Stroke="{StaticResource Border}"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 6"
+                                Padding="0"
+                                VerticalOptions="Center">
+                            <HorizontalStackLayout Spacing="0">
+                                <Button Text="Vedle sebe"
+                                        Style="{StaticResource SegmentButton}"
+                                        Command="{Binding GitDiff.ShowSideBySideCommand}"
+                                        BackgroundColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentBackground}}"
+                                        TextColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentText}}" />
+                                <BoxView WidthRequest="1" Color="{StaticResource Border}" />
+                                <Button Text="Řádkově"
+                                        Style="{StaticResource SegmentButton}"
+                                        Command="{Binding GitDiff.ShowInlineCommand}"
+                                        BackgroundColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentBackground}}"
+                                        TextColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentText}}" />
+                            </HorizontalStackLayout>
+                        </Border>
 
-                            <Picker Grid.Column="1"
-                                    VerticalOptions="Center"
-                                    ItemsSource="{Binding GitDiff.Branches}"
-                                    ItemDisplayBinding="{Binding DisplayName}"
-                                    SelectedItem="{Binding GitDiff.SelectedBranch}"
-                                    IsEnabled="{Binding GitDiff.IsBranchIdle}" />
+                        <Button Grid.Column="6"
+                                Text="Načíst znovu"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="28"
+                                VerticalOptions="Center"
+                                Command="{Binding GitDiff.RefreshCommand}" />
 
-                            <Button Grid.Column="2"
-                                    Text="{Binding GitDiff.FetchButtonText}"
-                                    Style="{StaticResource ToolButton}"
-                                    HeightRequest="28"
-                                    VerticalOptions="Center"
-                                    Command="{Binding GitDiff.FetchAndPullCommand}" />
-                        </Grid>
+                        <Button Grid.Column="7"
+                                Text="{Binding GitDiff.GitMenuButtonText}"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="28"
+                                VerticalOptions="Center"
+                                Command="{Binding GitDiff.ToggleGitMenuCommand}" />
                     </Grid>
+                </Border>
 
-                    <Label Grid.Column="4"
-                           Text="{Binding GitDiff.DiffSummary}"
+                <BoxView Grid.Row="0" HeightRequest="1" Color="{StaticResource Border}" VerticalOptions="End" />
+
+                <Border Grid.Row="1"
+                        BackgroundColor="{StaticResource Surface}"
+                        StrokeThickness="0"
+                        Padding="14,7"
+                        IsVisible="{Binding GitDiff.ShowStashBar}">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,260,Auto,Auto,Auto,*" ColumnSpacing="8">
+
+                        <Label Grid.Column="0"
+                               Text="Stash"
+                               Style="{StaticResource CaptionLabel}"
+                               VerticalOptions="Center" />
+
+                        <Button Grid.Column="1"
+                                Text="Stashnout změny"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="26"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding GitDiff.ShowStashCreate}"
+                                Command="{Binding GitDiff.StashCommand}" />
+
+                        <Label Grid.Column="2"
+                               Text="{Binding GitDiff.StashCountLabel}"
+                               Style="{StaticResource CaptionLabel}"
+                               VerticalOptions="Center"
+                               IsVisible="{Binding GitDiff.HasStashes}" />
+
+                        <Picker Grid.Column="3"
+                                VerticalOptions="Center"
+                                ItemsSource="{Binding GitDiff.Stashes}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding GitDiff.SelectedStash}"
+                                IsEnabled="{Binding GitDiff.IsBranchIdle}"
+                                IsVisible="{Binding GitDiff.HasStashes}" />
+
+                        <Button Grid.Column="4"
+                                Text="Obnovit"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="26"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding GitDiff.HasStashes}"
+                                ToolTipProperties.Text="git stash pop"
+                                Command="{Binding GitDiff.StashPopCommand}" />
+
+                        <Button Grid.Column="5"
+                                Text="Použít"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="26"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding GitDiff.HasStashes}"
+                                ToolTipProperties.Text="git stash apply"
+                                Command="{Binding GitDiff.StashApplyCommand}" />
+
+                        <Button Grid.Column="6"
+                                Text="Zahodit"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="26"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding GitDiff.HasStashes}"
+                                ToolTipProperties.Text="git stash drop"
+                                Command="{Binding GitDiff.StashDropCommand}" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2"
+                        BackgroundColor="{StaticResource Surface}"
+                        StrokeThickness="0"
+                        Padding="14,7"
+                        IsVisible="{Binding GitDiff.HasCommitStatus}">
+                    <Label Text="{Binding GitDiff.CommitStatus}"
                            Style="{StaticResource MonoLabel}"
-                           FontSize="12"
-                           VerticalOptions="Center"
-                           IsVisible="{Binding GitDiff.HasDiffSummary}" />
+                           FontSize="11"
+                           TextColor="{Binding GitDiff.CommitFailed, Converter={StaticResource CommitStatusColor}}"
+                           LineBreakMode="TailTruncation" />
+                </Border>
 
-                    <Border Grid.Column="5"
-                            BackgroundColor="{StaticResource SurfaceRaised}"
-                            Stroke="{StaticResource Border}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 6"
-                            Padding="0"
-                            VerticalOptions="Center">
-                        <HorizontalStackLayout Spacing="0">
-                            <Button Text="Vedle sebe"
-                                    Style="{StaticResource SegmentButton}"
-                                    Command="{Binding GitDiff.ShowSideBySideCommand}"
-                                    BackgroundColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentBackground}}"
-                                    TextColor="{Binding GitDiff.IsSideBySide, Converter={StaticResource SegmentText}}" />
-                            <BoxView WidthRequest="1" Color="{StaticResource Border}" />
-                            <Button Text="Řádkově"
-                                    Style="{StaticResource SegmentButton}"
-                                    Command="{Binding GitDiff.ShowInlineCommand}"
-                                    BackgroundColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentBackground}}"
-                                    TextColor="{Binding GitDiff.IsInline, Converter={StaticResource SegmentText}}" />
-                        </HorizontalStackLayout>
+                <Grid Grid.Row="3" ColumnDefinitions="330,*" ColumnSpacing="14" Padding="14">
+
+                    <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Padding="0">
+                        <Grid RowDefinitions="Auto,Auto,*">
+                            <Entry Grid.Row="0"
+                                   Margin="10,10,10,8"
+                                   Placeholder="Hledat soubor…"
+                                   Text="{Binding GitDiff.FileFilter}"
+                                   Style="{StaticResource FieldEntry}"
+                                   ClearButtonVisibility="WhileEditing" />
+
+                            <BoxView Grid.Row="1" HeightRequest="1" Color="{StaticResource BorderSoft}" />
+
+                            <CollectionView Grid.Row="2" ItemsSource="{Binding GitDiff.Files}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:GitFileViewModel">
+                                        <Grid ColumnDefinitions="20,*"
+                                              ColumnSpacing="9"
+                                              Padding="12,7"
+                                              BackgroundColor="{Binding IsSelected, Converter={StaticResource RowBackground}}">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding SelectCommand}" />
+                                            </Grid.GestureRecognizers>
+
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding StatusCode}"
+                                                   TextColor="{Binding StatusColor}"
+                                                   FontFamily="Consolas"
+                                                   FontSize="11"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center" />
+
+                                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                                <Label Text="{Binding FileName}" FontSize="12" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding DirectoryName}"
+                                                       Style="{StaticResource CaptionLabel}"
+                                                       FontSize="10"
+                                                       LineBreakMode="HeadTruncation"
+                                                       IsVisible="{Binding HasDirectory}" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+
+                            <Label Grid.Row="2"
+                                   Text="{Binding GitDiff.EmptyListMessage}"
+                                   Style="{StaticResource CaptionLabel}"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   IsVisible="{Binding GitDiff.HasNoChanges}" />
+                        </Grid>
                     </Border>
 
-                    <Button Grid.Column="6"
-                            Text="Načíst znovu"
-                            Style="{StaticResource ToolButton}"
-                            HeightRequest="28"
-                            VerticalOptions="Center"
-                            Command="{Binding GitDiff.RefreshCommand}" />
-                </Grid>
-            </Border>
+                    <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Padding="0">
+                        <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding GitDiff.HasSelectedFile}">
 
-            <BoxView Grid.Row="0" HeightRequest="1" Color="{StaticResource Border}" VerticalOptions="End" />
-
-            <Border Grid.Row="1"
-                    BackgroundColor="{StaticResource Surface}"
-                    StrokeThickness="0"
-                    Padding="14,7"
-                    IsVisible="{Binding GitDiff.HasCommitStatus}">
-                <Label Text="{Binding GitDiff.CommitStatus}"
-                       Style="{StaticResource MonoLabel}"
-                       FontSize="11"
-                       TextColor="{Binding GitDiff.CommitFailed, Converter={StaticResource CommitStatusColor}}"
-                       LineBreakMode="TailTruncation" />
-            </Border>
-
-            <Grid Grid.Row="2" ColumnDefinitions="330,*" ColumnSpacing="14" Padding="14">
-
-                <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Padding="0">
-                    <Grid RowDefinitions="Auto,Auto,*">
-                        <Entry Grid.Row="0"
-                               Margin="10,10,10,8"
-                               Placeholder="Hledat soubor…"
-                               Text="{Binding GitDiff.FileFilter}"
-                               Style="{StaticResource FieldEntry}"
-                               ClearButtonVisibility="WhileEditing" />
-
-                        <BoxView Grid.Row="1" HeightRequest="1" Color="{StaticResource BorderSoft}" />
-
-                        <CollectionView Grid.Row="2" ItemsSource="{Binding GitDiff.Files}">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:GitFileViewModel">
-                                    <Grid ColumnDefinitions="20,*"
-                                          ColumnSpacing="9"
-                                          Padding="12,7"
-                                          BackgroundColor="{Binding IsSelected, Converter={StaticResource RowBackground}}">
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding SelectCommand}" />
-                                        </Grid.GestureRecognizers>
-
-                                        <Label Grid.Column="0"
-                                               Text="{Binding StatusCode}"
-                                               TextColor="{Binding StatusColor}"
-                                               FontFamily="Consolas"
-                                               FontSize="11"
-                                               FontAttributes="Bold"
-                                               VerticalOptions="Center" />
-
-                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="{Binding FileName}" FontSize="12" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding DirectoryName}"
-                                                   Style="{StaticResource CaptionLabel}"
-                                                   FontSize="10"
-                                                   LineBreakMode="HeadTruncation"
-                                                   IsVisible="{Binding HasDirectory}" />
-                                        </VerticalStackLayout>
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-
-                        <Label Grid.Row="2"
-                               Text="{Binding GitDiff.EmptyListMessage}"
-                               Style="{StaticResource CaptionLabel}"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center"
-                               IsVisible="{Binding GitDiff.HasNoChanges}" />
-                    </Grid>
-                </Border>
-
-                <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Padding="0">
-                    <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding GitDiff.HasSelectedFile}">
-
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Padding="16,9">
-                            <Label Grid.Column="0"
-                                   Text="{Binding GitDiff.SelectedPath}"
-                                   Style="{StaticResource MonoLabel}"
-                                   FontSize="12"
-                                   TextColor="{StaticResource TextPrimary}"
-                                   LineBreakMode="HeadTruncation"
-                                   VerticalOptions="Center" />
-                            <Label Grid.Column="1"
-                                   Text="zobrazeno jen prvních 4000 řádků"
-                                   Style="{StaticResource CaptionLabel}"
-                                   VerticalOptions="Center"
-                                   IsVisible="{Binding GitDiff.IsTruncated}" />
-
-                            <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                                <Entry Placeholder="Hledat v diffu…"
-                                       Text="{Binding GitDiff.DiffSearchText}"
-                                       Style="{StaticResource FieldEntry}"
-                                       WidthRequest="220"
-                                       ClearButtonVisibility="WhileEditing" />
-
-                                <Label Text="{Binding GitDiff.MatchLabel}"
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Padding="16,9">
+                                <Label Grid.Column="0"
+                                       Text="{Binding GitDiff.SelectedPath}"
+                                       Style="{StaticResource MonoLabel}"
+                                       FontSize="12"
+                                       TextColor="{StaticResource TextPrimary}"
+                                       LineBreakMode="HeadTruncation"
+                                       VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       Text="zobrazeno jen prvních 4000 řádků"
                                        Style="{StaticResource CaptionLabel}"
                                        VerticalOptions="Center"
-                                       MinimumWidthRequest="54"
-                                       IsVisible="{Binding GitDiff.HasSearchText}" />
+                                       IsVisible="{Binding GitDiff.IsTruncated}" />
 
-                                <Button Text="&#x2191;"
-                                        Style="{StaticResource ToolButton}"
-                                        HeightRequest="28"
-                                        WidthRequest="34"
-                                        Padding="0"
-                                        Command="{Binding GitDiff.FindPreviousCommand}" />
+                                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                    <Entry Placeholder="Hledat v diffu…"
+                                           Text="{Binding GitDiff.DiffSearchText}"
+                                           Style="{StaticResource FieldEntry}"
+                                           WidthRequest="220"
+                                           ClearButtonVisibility="WhileEditing" />
 
-                                <Button Text="&#x2193;"
-                                        Style="{StaticResource ToolButton}"
-                                        HeightRequest="28"
-                                        WidthRequest="34"
-                                        Padding="0"
-                                        Command="{Binding GitDiff.FindNextCommand}" />
-                            </HorizontalStackLayout>
+                                    <Label Text="{Binding GitDiff.MatchLabel}"
+                                           Style="{StaticResource CaptionLabel}"
+                                           VerticalOptions="Center"
+                                           MinimumWidthRequest="54"
+                                           IsVisible="{Binding GitDiff.HasSearchText}" />
+
+                                    <Button Text="&#x2191;"
+                                            Style="{StaticResource ToolButton}"
+                                            HeightRequest="28"
+                                            WidthRequest="34"
+                                            Padding="0"
+                                            Command="{Binding GitDiff.FindPreviousCommand}" />
+
+                                    <Button Text="&#x2193;"
+                                            Style="{StaticResource ToolButton}"
+                                            HeightRequest="28"
+                                            WidthRequest="34"
+                                            Padding="0"
+                                            Command="{Binding GitDiff.FindNextCommand}" />
+                                </HorizontalStackLayout>
+                            </Grid>
+
+                            <BoxView Grid.Row="1" HeightRequest="1" Color="{StaticResource BorderSoft}" />
+
+                            <Grid Grid.Row="2" ColumnDefinitions="*,14">
+                                <CollectionView x:Name="InlineDiffView"
+                                                Grid.Column="0"
+                                                ItemsSource="{Binding GitDiff.InlineLines}"
+                                                ItemTemplate="{StaticResource InlineSelector}"
+                                                IsVisible="{Binding GitDiff.IsInline}" />
+
+                                <CollectionView x:Name="SideDiffView"
+                                                Grid.Column="0"
+                                                ItemsSource="{Binding GitDiff.SideRows}"
+                                                ItemTemplate="{StaticResource SideSelector}"
+                                                IsVisible="{Binding GitDiff.IsSideBySide}" />
+
+                                <GraphicsView x:Name="MarkerView" Grid.Column="1" />
+                            </Grid>
                         </Grid>
+                    </Border>
 
-                        <BoxView Grid.Row="1" HeightRequest="1" Color="{StaticResource BorderSoft}" />
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Spacing="6"
+                                         IsVisible="{Binding GitDiff.HasSelectedFile, Converter={StaticResource InverseBool}}">
+                        <Label Text="Žádné změny k zobrazení"
+                               FontSize="14"
+                               TextColor="{StaticResource TextSecondary}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="Vyber soubor vlevo, nebo repozitář nemá rozpracované změny."
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
 
-                        <Grid Grid.Row="2" ColumnDefinitions="*,14">
-                            <CollectionView x:Name="InlineDiffView"
-                                            Grid.Column="0"
-                                            ItemsSource="{Binding GitDiff.InlineLines}"
-                                            ItemTemplate="{StaticResource InlineSelector}"
-                                            IsVisible="{Binding GitDiff.IsInline}" />
-
-                            <CollectionView x:Name="SideDiffView"
-                                            Grid.Column="0"
-                                            ItemsSource="{Binding GitDiff.SideRows}"
-                                            ItemTemplate="{StaticResource SideSelector}"
-                                            IsVisible="{Binding GitDiff.IsSideBySide}" />
-
-                            <GraphicsView x:Name="MarkerView" Grid.Column="1" />
-                        </Grid>
-                    </Grid>
-                </Border>
-
-                <VerticalStackLayout Grid.Column="1"
-                                     VerticalOptions="Center"
-                                     HorizontalOptions="Center"
-                                     Spacing="6"
-                                     IsVisible="{Binding GitDiff.HasSelectedFile, Converter={StaticResource InverseBool}}">
-                    <Label Text="Žádné změny k zobrazení"
-                           FontSize="14"
-                           TextColor="{StaticResource TextSecondary}"
-                           HorizontalTextAlignment="Center" />
-                    <Label Text="Vyber soubor vlevo, nebo repozitář nemá rozpracované změny."
-                           Style="{StaticResource CaptionLabel}"
-                           HorizontalTextAlignment="Center" />
-                </VerticalStackLayout>
-
-                <VerticalStackLayout Grid.Column="1"
-                                     VerticalOptions="Center"
-                                     Spacing="8"
-                                     Padding="24"
-                                     IsVisible="{Binding GitDiff.HasError}">
-                    <Label Text="Git selhal"
-                           FontSize="14"
-                           TextColor="{StaticResource Danger}"
-                           HorizontalTextAlignment="Center" />
-                    <Label Text="{Binding GitDiff.ErrorMessage}"
-                           Style="{StaticResource CaptionLabel}"
-                           HorizontalTextAlignment="Center" />
-                </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1"
+                                         VerticalOptions="Center"
+                                         Spacing="8"
+                                         Padding="24"
+                                         IsVisible="{Binding GitDiff.HasError}">
+                        <Label Text="Git selhal"
+                               FontSize="14"
+                               TextColor="{StaticResource Danger}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding GitDiff.ErrorMessage}"
+                               Style="{StaticResource CaptionLabel}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Grid>
             </Grid>
+
+            <BoxView Color="#01000000"
+                     IsVisible="{Binding GitDiff.IsGitMenuOpen}">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GitDiff.CloseGitMenuCommand}" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border HorizontalOptions="End"
+                    VerticalOptions="Start"
+                    WidthRequest="196"
+                    Margin="0,54,14,0"
+                    Padding="5"
+                    BackgroundColor="{StaticResource SurfaceRaised}"
+                    Stroke="{StaticResource Border}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    IsVisible="{Binding GitDiff.IsGitMenuOpen}">
+                <VerticalStackLayout Spacing="2">
+
+                    <Button Text="{Binding GitDiff.CommitButtonText}"
+                            Style="{StaticResource MenuButton}"
+                            IsVisible="{Binding GitDiff.ShowCommitBar}"
+                            Command="{Binding GitDiff.CommitAndPushCommand}" />
+
+                    <Button Text="{Binding GitDiff.PushButtonText}"
+                            Style="{StaticResource MenuButton}"
+                            IsVisible="{Binding GitDiff.ShowPushButton}"
+                            Command="{Binding GitDiff.PushCommand}" />
+
+                    <Button Text="{Binding GitDiff.FetchButtonText}"
+                            Style="{StaticResource MenuButton}"
+                            Command="{Binding GitDiff.FetchCommand}" />
+
+                    <Button Text="{Binding GitDiff.FetchAndPullButtonText}"
+                            Style="{StaticResource MenuButton}"
+                            Command="{Binding GitDiff.FetchAndPullCommand}" />
+                </VerticalStackLayout>
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>

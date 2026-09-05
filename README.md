@@ -27,6 +27,7 @@ Když máš deset mikroslužeb ve třech repozitářích, spouštění přes Vis
 | **Endpointy** | Z logu vytáhne `Now listening on…`, zobrazí porty a otevře URL v prohlížeči |
 | **Git** | Diff pracovního stromu i posledních 50 commitů, inline / side-by-side, minimapa změn |
 | **Commit & push** | `add --all` → `commit` → `push --set-upstream` přímo z aplikace |
+| **Stash / fetch / push** | `stash push -u` a pop / apply / drop, `fetch --prune`, `pull --ff-only`, samostatný push |
 | **Běh na pozadí** | Zavření okna schová aplikaci do tray, běžící projekty jedou dál |
 | **Aktualizace** | Velopack, automatická kontrola GitHub Releases, jedním kliknutím stáhne a restartuje |
 
@@ -89,6 +90,9 @@ Tlačítko u repozitáře otevře diff panel. V rozbalovacím seznamu nahoře p�
 - Svislý pruh vedle diffu je minimapa změn s indikací aktuálního výřezu.
 - Netrackované soubory se vykreslí jako samé přidané řádky. Binární soubory se přeskočí.
 - **Commit & push** provede `git add --all`, `git commit -m <zpráva>` a `git push --set-upstream origin <větev>`. Na detached HEAD operaci odmítne. Timeout je 5 minut.
+- **Push** se nabízí vždy, když má lokální větev nějaký commit a repozitář má `origin` — tedy i se špinavým pracovním stromem nebo když není co odeslat (např. nová větev, která na originu ještě není). Počet čekajících commitů je na tlačítku, výsledek (`vytvořena větev` / `už je aktuální` / `odesláno`) ve stavovém řádku.
+- **Fetch** (`fetch --prune origin`) jde spustit kdykoli, **Fetch & Pull** navíc udělá `pull --ff-only` a vyžaduje čistý pracovní strom. Probíhající operaci lze týmž tlačítkem zrušit.
+- **Stash** uloží změny včetně netrackovaných souborů (`stash push --include-untracked`) a jako zprávu použije text z pole pro commit. Uložené stashe vybíráš v seznamu: **Obnovit** = `stash pop`, **Použít** = `stash apply`, **Zahodit** = `stash drop` (s potvrzením).
 
 Git se volá s `GIT_OPTIONAL_LOCKS=0` a `GIT_TERMINAL_PROMPT=0`, takže neblokuje ostatní nástroje a nikdy se neptá na přihlašovací údaje v terminálu — push tedy vyžaduje nakonfigurovaný credential helper.
 

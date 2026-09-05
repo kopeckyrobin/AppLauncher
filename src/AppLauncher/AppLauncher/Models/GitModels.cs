@@ -49,6 +49,78 @@ public sealed class GitBranch
     }
 }
 
+public sealed class GitPushResult
+{
+    public required string Branch { get; init; }
+
+    public required bool WasUpToDate { get; init; }
+
+    public required bool CreatedBranch { get; init; }
+}
+
+public sealed class GitPushState
+{
+    public required bool HasRemote { get; init; }
+
+    public required bool HasCommits { get; init; }
+
+    public required int OutgoingCount { get; init; }
+
+    public bool CanPush
+    {
+        get { return this.HasRemote && this.HasCommits; }
+    }
+
+    public static GitPushState Empty
+    {
+        get
+        {
+            return new GitPushState
+            {
+                HasRemote = false,
+                HasCommits = false,
+                OutgoingCount = 0
+            };
+        }
+    }
+}
+
+public sealed class GitStash
+{
+    private const int SubjectLength = 44;
+
+    public required int Index { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string Subject { get; init; }
+
+    public string DisplayName
+    {
+        get
+        {
+            if (String.IsNullOrEmpty(this.Subject))
+            {
+                return this.Name;
+            }
+
+            string subject = this.Subject;
+
+            if (subject.Length > SubjectLength)
+            {
+                subject = subject[..SubjectLength].TrimEnd() + "…";
+            }
+
+            return $"{this.Name}  {subject}";
+        }
+    }
+
+    public override string ToString()
+    {
+        return this.DisplayName;
+    }
+}
+
 public sealed class GitDiffSource
 {
     private const int SubjectLength = 20;

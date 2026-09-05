@@ -18,6 +18,7 @@ public partial class MainPage : ContentPage
         this._viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
 
         this._viewModel.Update.RestartGuard = this.ConfirmRestartAsync;
+        this._viewModel.GitDiff.ConfirmGuard = this.ConfirmGitAsync;
 
         this.MarkerView.Drawable = this._markerDrawable;
         this._viewModel.GitDiff.PropertyChanged += this.OnGitDiffPropertyChanged;
@@ -62,6 +63,11 @@ public partial class MainPage : ContentPage
 
         this._viewModel.Shutdown();
         return true;
+    }
+
+    private async Task<bool> ConfirmGitAsync(string message)
+    {
+        return await this.DisplayAlertAsync("Git", message, "Pokračovat", "Zrušit");
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)

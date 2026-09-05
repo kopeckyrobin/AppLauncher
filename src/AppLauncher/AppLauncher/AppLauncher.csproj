@@ -46,6 +46,7 @@
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#12141A" />
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#12141A" BaseSize="128,128" />
 		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\git_branch.svg" BaseSize="16,16" />
 		<MauiFont Include="Resources\Fonts\*" />
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>

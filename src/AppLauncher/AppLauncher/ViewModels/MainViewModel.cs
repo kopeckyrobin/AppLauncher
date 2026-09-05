@@ -375,16 +375,7 @@ public sealed class MainViewModel : ObservableBase
 
     private void OpenRoot()
     {
-        if (!Directory.Exists(this.RootPath))
-        {
-            return;
-        }
-
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = this.RootPath,
-            UseShellExecute = true
-        });
+        ShellService.OpenFolder(this.RootPath);
     }
 
     private void ChangeRoot()

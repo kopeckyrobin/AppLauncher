@@ -8,6 +8,8 @@ public sealed class RepositoryViewModel : ObservableBase
     private readonly Action<RepositoryViewModel> _onShowDiff;
     private readonly RelayCommand _toggleExpandCommand;
     private readonly RelayCommand _showDiffCommand;
+    private readonly RelayCommand _openFolderCommand;
+    private readonly RelayCommand _openTerminalCommand;
     private bool _isExpanded;
     private string _currentBranch = String.Empty;
 
@@ -26,6 +28,8 @@ public sealed class RepositoryViewModel : ObservableBase
         this._isExpanded = !stateStore.IsCollapsed(directoryPath);
         this._toggleExpandCommand = new RelayCommand(this.ToggleExpand);
         this._showDiffCommand = new RelayCommand(this.ShowDiff);
+        this._openFolderCommand = new RelayCommand(this.OpenFolder);
+        this._openTerminalCommand = new RelayCommand(this.OpenTerminal);
         this.HasGit = GitService.IsRepository(directoryPath);
         this.RefreshBranch();
 
@@ -72,6 +76,16 @@ public sealed class RepositoryViewModel : ObservableBase
     public System.Windows.Input.ICommand ShowDiffCommand
     {
         get { return this._showDiffCommand; }
+    }
+
+    public System.Windows.Input.ICommand OpenFolderCommand
+    {
+        get { return this._openFolderCommand; }
+    }
+
+    public System.Windows.Input.ICommand OpenTerminalCommand
+    {
+        get { return this._openTerminalCommand; }
     }
 
     public bool IsExpanded
@@ -143,5 +157,15 @@ public sealed class RepositoryViewModel : ObservableBase
     private void ShowDiff()
     {
         this._onShowDiff(this);
+    }
+
+    private void OpenFolder()
+    {
+        ShellService.OpenFolder(this.DirectoryPath);
+    }
+
+    private void OpenTerminal()
+    {
+        ShellService.OpenTerminal(this.DirectoryPath);
     }
 }
