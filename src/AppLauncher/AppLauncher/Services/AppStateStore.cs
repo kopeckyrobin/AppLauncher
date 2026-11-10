@@ -13,6 +13,9 @@ public sealed class AppState
 
     [JsonPropertyName("collapsedRepositories")]
     public List<string> CollapsedRepositories { get; set; } = new();
+
+    [JsonPropertyName("hiddenRepositories")]
+    public List<string> HiddenRepositories { get; set; } = new();
 }
 
 public sealed class AppStateStore
@@ -146,6 +149,35 @@ public sealed class AppStateStore
         else
         {
             changed = this._state.CollapsedRepositories.RemoveAll(
+                item => String.Equals(item, repositoryPath, StringComparison.OrdinalIgnoreCase)) > 0;
+        }
+
+        if (changed)
+        {
+            this.Save();
+        }
+    }
+
+    public bool IsHidden(string repositoryPath)
+    {
+        return this._state.HiddenRepositories.Contains(repositoryPath, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public void SetHidden(string repositoryPath, bool isHidden)
+    {
+        bool changed;
+
+        if (isHidden)
+        {
+            changed = !this.IsHidden(repositoryPath);
+            if (changed)
+            {
+                this._state.HiddenRepositories.Add(repositoryPath);
+            }
+        }
+        else
+        {
+            changed = this._state.HiddenRepositories.RemoveAll(
                 item => String.Equals(item, repositoryPath, StringComparison.OrdinalIgnoreCase)) > 0;
         }
 

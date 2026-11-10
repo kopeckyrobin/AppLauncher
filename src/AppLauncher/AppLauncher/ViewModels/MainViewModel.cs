@@ -9,16 +9,19 @@ public sealed class MainViewModel : ObservableBase
     private readonly AppStateStore _stateStore = new();
     private readonly RepositoryScanner _scanner = new();
     private readonly List<ProjectViewModel> _allProjects = new();
+    private readonly List<RepositoryViewModel> _allRepositories = new();
     private readonly RelayCommand _refreshCommand;
     private readonly RelayCommand _stopAllCommand;
     private readonly RelayCommand _changeRootCommand;
     private readonly RelayCommand _openRootCommand;
+    private readonly RelayCommand _toggleHiddenCommand;
 
     private IDispatcherTimer? _pumpTimer;
     private CancellationTokenSource? _scanCancellation;
     private ProjectViewModel? _selectedProject;
     private string _rootPath = String.Empty;
     private bool _isScanning;
+    private bool _isHiddenExpanded;
     private string _emptyMessage = String.Empty;
 
     public MainViewModel()
@@ -30,11 +33,14 @@ public sealed class MainViewModel : ObservableBase
         this._stopAllCommand = new RelayCommand(this.StopAll);
         this._changeRootCommand = new RelayCommand(this.ChangeRoot);
         this._openRootCommand = new RelayCommand(this.OpenRoot);
+        this._toggleHiddenCommand = new RelayCommand(this.ToggleHidden);
 
         this.GitDiff.BranchChanged += this.OnGitBranchChanged;
     }
 
     public ObservableCollection<RepositoryViewModel> Repositories { get; } = new();
+
+    public ObservableCollection<RepositoryViewModel> HiddenRepositories { get; } = new();
 
     public GitDiffViewModel GitDiff { get; } = new();
 
@@ -58,6 +64,38 @@ public sealed class MainViewModel : ObservableBase
     public System.Windows.Input.ICommand OpenRootCommand
     {
         get { return this._openRootCommand; }
+    }
+
+    public System.Windows.Input.ICommand ToggleHiddenCommand
+    {
+        get { return this._toggleHiddenCommand; }
+    }
+
+    public bool HasHiddenRepositories
+    {
+        get { return this.HiddenRepositories.Count > 0; }
+    }
+
+    public bool IsHiddenExpanded
+    {
+        get { return this._isHiddenExpanded; }
+        private set
+        {
+            if (this.SetProperty(ref this._isHiddenExpanded, value))
+            {
+                this.RaisePropertyChanged(nameof(this.HiddenExpanderGlyph));
+            }
+        }
+    }
+
+    public string HiddenExpanderGlyph
+    {
+        get { return this._isHiddenExpanded ? "▾" : "▸"; }
+    }
+
+    public string HiddenHeader
+    {
+        get { return $"Skryté ({this.HiddenRepositories.Count})"; }
     }
 
     public string RootPath
@@ -255,6 +293,7 @@ public sealed class MainViewModel : ObservableBase
         string? previouslySelectedPath = this.SelectedProject?.ProjectFilePath;
 
         this._allProjects.Clear();
+        this._allRepositories.Clear();
         this.Repositories.Clear();
         this.SelectedProject = null;
 
@@ -295,12 +334,13 @@ public sealed class MainViewModel : ObservableBase
                 });
             }
 
-            this.Repositories.Add(new RepositoryViewModel(
+            this._allRepositories.Add(new RepositoryViewModel(
                 repository.Name,
                 repository.DirectoryPath,
                 solutions,
                 this._stateStore,
-                this.OnShowDiff));
+                this.OnShowDiff,
+                this.OnRepositoryVisibilityChanged));
         }
 
         foreach (KeyValuePair<string, ProjectViewModel> orphan in runningByPath)
@@ -317,7 +357,7 @@ public sealed class MainViewModel : ObservableBase
                 project => String.Equals(project.ProjectFilePath, previouslySelectedPath, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (this.Repositories.Count == 0)
+        if (this._allRepositories.Count == 0)
         {
             if (!Directory.Exists(this.RootPath))
             {
@@ -325,11 +365,59 @@ public sealed class MainViewModel : ObservableBase
             }
             else
             {
-                this.EmptyMessage = "Nenašel jsem žádné spustitelné projekty. Hledám .sln a .slnx ve složce src/ každého repozitáře.";
+                this.EmptyMessage = "Nenašel jsem žádné spustitelné projekty. Hledám .sln a .slnx v kořeni každého repozitáře a v jeho podsložkách.";
             }
         }
 
+        this.RebuildRepositoryLists();
         this.OnRunStateChanged();
+    }
+
+    private void OnRepositoryVisibilityChanged(RepositoryViewModel repository)
+    {
+        bool isHidden = repository.IsHidden;
+        ObservableCollection<RepositoryViewModel> source = isHidden ? this.Repositories : this.HiddenRepositories;
+        ObservableCollection<RepositoryViewModel> target = isHidden ? this.HiddenRepositories : this.Repositories;
+
+        source.Remove(repository);
+
+        if (!target.Contains(repository))
+        {
+            int index = this._allRepositories
+                .TakeWhile(item => !ReferenceEquals(item, repository))
+                .Count(item => item.IsHidden == isHidden);
+
+            target.Insert(Math.Min(index, target.Count), repository);
+        }
+
+        this.RaisePropertyChanged(nameof(this.HasHiddenRepositories));
+        this.RaisePropertyChanged(nameof(this.HiddenHeader));
+    }
+
+    private void RebuildRepositoryLists()
+    {
+        this.Repositories.Clear();
+        this.HiddenRepositories.Clear();
+
+        foreach (RepositoryViewModel repository in this._allRepositories)
+        {
+            if (repository.IsHidden)
+            {
+                this.HiddenRepositories.Add(repository);
+            }
+            else
+            {
+                this.Repositories.Add(repository);
+            }
+        }
+
+        this.RaisePropertyChanged(nameof(this.HasHiddenRepositories));
+        this.RaisePropertyChanged(nameof(this.HiddenHeader));
+    }
+
+    private void ToggleHidden()
+    {
+        this.IsHiddenExpanded = !this.IsHiddenExpanded;
     }
 
     private void OnProjectSelected(ProjectViewModel project)
@@ -344,7 +432,7 @@ public sealed class MainViewModel : ObservableBase
 
     private void OnGitBranchChanged(object? sender, string repositoryPath)
     {
-        foreach (RepositoryViewModel repository in this.Repositories)
+        foreach (RepositoryViewModel repository in this._allRepositories)
         {
             if (String.Equals(repository.DirectoryPath, repositoryPath, StringComparison.OrdinalIgnoreCase))
             {
@@ -359,7 +447,7 @@ public sealed class MainViewModel : ObservableBase
         this.RaisePropertyChanged(nameof(this.HasRunning));
         this.RaisePropertyChanged(nameof(this.RunningLabel));
 
-        foreach (RepositoryViewModel repository in this.Repositories)
+        foreach (RepositoryViewModel repository in this._allRepositories)
         {
             repository.NotifyRunStateChanged();
         }

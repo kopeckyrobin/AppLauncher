@@ -24,16 +24,10 @@ public sealed class RepositoryScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            string sourcePath = Path.Combine(repositoryPath, "src");
-            if (!Directory.Exists(sourcePath))
-            {
-                continue;
-            }
-
             List<ScannedSolution> solutions = new();
             HashSet<string> claimedProjects = new(StringComparer.OrdinalIgnoreCase);
 
-            foreach (SolutionGroup group in this.FindSolutionGroups(sourcePath))
+            foreach (SolutionGroup group in this.FindSolutionGroups(repositoryPath))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -99,15 +93,20 @@ public sealed class RepositoryScanner
         return repositories;
     }
 
-    private IReadOnlyList<SolutionGroup> FindSolutionGroups(string sourcePath)
+    private IReadOnlyList<SolutionGroup> FindSolutionGroups(string repositoryPath)
     {
         List<string> candidates = new();
 
-        candidates.AddRange(EnumerateSolutionFiles(sourcePath));
+        candidates.AddRange(EnumerateSolutionFiles(repositoryPath));
 
-        foreach (string subDirectory in EnumerateDirectories(sourcePath).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+        foreach (string subDirectory in EnumerateDirectories(repositoryPath).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
         {
             candidates.AddRange(EnumerateSolutionFiles(subDirectory));
+
+            foreach (string nestedDirectory in EnumerateDirectories(subDirectory).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+            {
+                candidates.AddRange(EnumerateSolutionFiles(nestedDirectory));
+            }
         }
 
         Dictionary<string, List<string>> grouped = new(StringComparer.OrdinalIgnoreCase);
@@ -186,7 +185,10 @@ public sealed class RepositoryScanner
                 .Where(directory =>
                 {
                     string name = Path.GetFileName(directory);
-                    return !name.StartsWith('.') && !name.Equals("node_modules", StringComparison.OrdinalIgnoreCase);
+                    return !name.StartsWith('.') &&
+                           !name.Equals("node_modules", StringComparison.OrdinalIgnoreCase) &&
+                           !name.Equals("bin", StringComparison.OrdinalIgnoreCase) &&
+                           !name.Equals("obj", StringComparison.OrdinalIgnoreCase);
                 })
                 .ToList();
         }
