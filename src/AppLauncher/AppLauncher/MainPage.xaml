@@ -568,8 +568,10 @@
                                         TextColor="{StaticResource Accent}"
                                         IsVisible="{Binding SelectedProject.HasDisplayUrl}"
                                         Command="{Binding SelectedProject.OpenUrlCommand}" />
-                                <Picker Title="Úroveň logu"
-                                        WidthRequest="150"
+                                <Label Text="Úroveň logu"
+                                       Style="{StaticResource CaptionLabel}"
+                                       VerticalOptions="Center" />
+                                <Picker WidthRequest="130"
                                         VerticalOptions="Center"
                                         ItemsSource="{Binding SelectedProject.SeverityOptions}"
                                         SelectedIndex="{Binding SelectedProject.SelectedSeverityIndex}" />
