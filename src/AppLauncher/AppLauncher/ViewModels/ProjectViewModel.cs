@@ -10,6 +10,8 @@ public sealed partial class ProjectViewModel : ObservableBase
     private const int MaximumLogLines = 2000;
     private const int StartupGracePeriodSeconds = 10;
 
+    private readonly record struct LogEntry(string Text, LogSeverity Severity);
+
     private static readonly TimeSpan CopyStatusDuration = TimeSpan.FromSeconds(3);
 
     [GeneratedRegex("(?:Now listening on|listening on):?\\s*(?<url>https?://[^\\s]+)", RegexOptions.IgnoreCase)]
@@ -20,7 +22,8 @@ public sealed partial class ProjectViewModel : ObservableBase
     private readonly Action<ProjectViewModel> _onSelected;
     private readonly Action _onRunStateChanged;
     private readonly ProcessRunner _runner = new();
-    private readonly Queue<string> _logLines = new();
+    private readonly Queue<LogEntry> _logLines = new();
+    private LogSeverity _minimumSeverity = LogSeverity.Trace;
     private readonly RelayCommand _toggleCommand;
     private readonly RelayCommand _selectCommand;
     private readonly RelayCommand _clearLogCommand;
@@ -37,6 +40,7 @@ public sealed partial class ProjectViewModel : ObservableBase
     private string _statusDetail = String.Empty;
     private int _matchCount;
     private int _droppedLines;
+    private LogSeverity _lastSeverity = LogSeverity.Info;
     private bool _isSelected;
     private DateTime _startedAt;
 
@@ -95,7 +99,7 @@ public sealed partial class ProjectViewModel : ObservableBase
 
     public string CommandLine
     {
-        get { return this._runner.BuildCommandLine(this._project.ProjectFilePath, this._selectedProfile.Name, this._project.TargetFrameworkOverride); }
+        get { return this._runner.BuildCommandLine(this._project.ProjectFilePath, this._project.TargetFrameworkOverride); }
     }
 
     public System.Windows.Input.ICommand ToggleCommand
@@ -121,6 +125,48 @@ public sealed partial class ProjectViewModel : ObservableBase
     public System.Windows.Input.ICommand OpenUrlCommand
     {
         get { return this._openUrlCommand; }
+    }
+
+    public IReadOnlyList<string> SeverityOptions { get; } = new[]
+    {
+        "Trace (vše)",
+        "Debug a vyšší",
+        "Info a vyšší",
+        "Warning a vyšší",
+        "Error"
+    };
+
+    public int SelectedSeverityIndex
+    {
+        get { return (int)this._minimumSeverity; }
+        set
+        {
+            if (value < 0 || value >= this.SeverityOptions.Count || value == (int)this._minimumSeverity)
+            {
+                return;
+            }
+
+            this._minimumSeverity = (LogSeverity)value;
+            this.RaisePropertyChanged(nameof(this.SelectedSeverityIndex));
+            this.RaisePropertyChanged(nameof(this.HasSeverityFilter));
+            this.RaisePropertyChanged(nameof(this.HasFilter));
+            this.FlushLog();
+        }
+    }
+
+    public bool HasSeverityFilter
+    {
+        get { return this._minimumSeverity > LogSeverity.Trace; }
+    }
+
+    public bool HasMatches
+    {
+        get { return this.HasSearch && this._matchCount > 0; }
+    }
+
+    public bool HasFilter
+    {
+        get { return this.HasSearch || this.HasSeverityFilter; }
     }
 
     public LaunchProfile SelectedProfile
@@ -254,6 +300,7 @@ public sealed partial class ProjectViewModel : ObservableBase
             if (this.SetProperty(ref this._searchText, value ?? String.Empty))
             {
                 this.RaisePropertyChanged(nameof(this.HasSearch));
+                this.RaisePropertyChanged(nameof(this.HasFilter));
                 this.FlushLog();
             }
         }
@@ -285,9 +332,24 @@ public sealed partial class ProjectViewModel : ObservableBase
     {
         get
         {
-            if (!this.HasSearch)
+            if (!this.HasFilter)
             {
                 return String.Empty;
+            }
+
+            if (!this.HasSearch)
+            {
+                if (this._matchCount == 1)
+                {
+                    return "1 řádek";
+                }
+
+                if (this._matchCount >= 2 && this._matchCount <= 4)
+                {
+                    return $"{this._matchCount} řádky";
+                }
+
+                return $"{this._matchCount} řádků";
             }
 
             if (this._matchCount == 0)
@@ -391,20 +453,19 @@ public sealed partial class ProjectViewModel : ObservableBase
         this._stateStore.SetLastProfile(this._project.ProjectFilePath, this._selectedProfile.Name);
 
         this._logLines.Clear();
+        this._lastSeverity = LogSeverity.Info;
         this._detectedUrls.Clear();
         this._statusDetail = String.Empty;
         this._droppedLines = 0;
         this.LogText = String.Empty;
         this._startedAt = DateTime.UtcNow;
 
-        this.AppendLine($"> {this.CommandLine}");
-        this.AppendLine(String.Empty);
         this.FlushLog();
 
         this.State = RunState.Starting;
         this.RaiseEndpointChanged();
 
-        this._runner.Start(this._project.ProjectFilePath, this._selectedProfile.Name, this._project.TargetFrameworkOverride);
+        this._runner.Start(this._project.ProjectFilePath, this._selectedProfile, this._project.TargetFrameworkOverride);
         this._onSelected(this);
     }
 
@@ -475,7 +536,8 @@ public sealed partial class ProjectViewModel : ObservableBase
 
     private void AppendLine(string line)
     {
-        this._logLines.Enqueue(line);
+        this._lastSeverity = LogSeverityClassifier.Classify(line, this._lastSeverity);
+        this._logLines.Enqueue(new LogEntry(line, this._lastSeverity));
 
         while (this._logLines.Count > MaximumLogLines)
         {
@@ -487,20 +549,30 @@ public sealed partial class ProjectViewModel : ObservableBase
     private void FlushLog()
     {
         StringBuilder builder = new();
-        bool isFiltered = this.HasSearch;
+        bool isFiltered = this.HasSeverityFilter;
+        bool isSearching = this.HasSearch;
         int matches = 0;
         int number = this._droppedLines + 1;
 
-        foreach (string line in this._logLines)
+        foreach (LogEntry entry in this._logLines)
         {
             if (!isFiltered)
             {
-                builder.AppendLine(line);
+                builder.AppendLine(entry.Text);
+
+                if (isSearching && entry.Text.Contains(this._searchText, StringComparison.OrdinalIgnoreCase))
+                {
+                    matches++;
+                }
             }
-            else if (line.Contains(this._searchText, StringComparison.OrdinalIgnoreCase))
+            else if (entry.Severity >= this._minimumSeverity)
             {
-                matches++;
-                builder.Append(number.ToString().PadLeft(5)).Append("  ").AppendLine(line);
+                builder.Append(number.ToString().PadLeft(5)).Append("  ").AppendLine(entry.Text);
+
+                if (!isSearching || entry.Text.Contains(this._searchText, StringComparison.OrdinalIgnoreCase))
+                {
+                    matches++;
+                }
             }
 
             number++;
@@ -510,6 +582,7 @@ public sealed partial class ProjectViewModel : ObservableBase
         this.LogText = builder.ToString();
         this.RaisePropertyChanged(nameof(this.HasLog));
         this.RaisePropertyChanged(nameof(this.SearchStatus));
+        this.RaisePropertyChanged(nameof(this.HasMatches));
     }
 
     private void Select()

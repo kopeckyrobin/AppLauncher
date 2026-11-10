@@ -10,10 +10,19 @@ public partial class MainPage : ContentPage
     private readonly ChangeMarkerDrawable _markerDrawable = new();
     private ProjectViewModel? _observedProject;
     private bool _isInitialized;
+    private string _appliedLogText = String.Empty;
+    private string _appliedLogSearch = String.Empty;
+#if WINDOWS
+    private bool _isLogPointerDown;
+    private bool _isLogRefreshPending;
+#endif
 
     public MainPage()
     {
         this.InitializeComponent();
+#if WINDOWS
+        this.LogEditor.HandlerChanged += this.OnLogEditorHandlerChanged;
+#endif
         this.BindingContext = this._viewModel;
         this._viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
 
@@ -94,7 +103,7 @@ public partial class MainPage : ContentPage
 
     private void OnSelectedProjectPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)
     {
-        if (eventArgs.PropertyName == nameof(ProjectViewModel.LogText))
+        if (eventArgs.PropertyName is nameof(ProjectViewModel.LogText) or nameof(ProjectViewModel.SearchText))
         {
             this.RefreshLog();
         }
@@ -104,49 +113,120 @@ public partial class MainPage : ContentPage
     {
         this.Dispatcher.Dispatch(() =>
         {
-            string text = this._viewModel.SelectedProject?.LogText ?? String.Empty;
+            ProjectViewModel? project = this._viewModel.SelectedProject;
+            string text = project?.LogText ?? String.Empty;
+            string search = project?.SearchText ?? String.Empty;
 
-            if (this.LogEditor.Text != text)
+            if (this._appliedLogText == text && this._appliedLogSearch == search)
             {
-                this.LogEditor.Text = text;
+                return;
             }
 
-            this.ScrollLogToEnd();
+            bool searchChanged = this._appliedLogSearch != search;
+            this._appliedLogText = text;
+            this._appliedLogSearch = search;
+
+#if WINDOWS
+            if (this.LogEditor.Handler?.PlatformView is Microsoft.UI.Xaml.Controls.RichEditBox box)
+            {
+                if (!searchChanged && (this._isLogPointerDown || box.Document.Selection.Length != 0))
+                {
+                    this._appliedLogText = this.LogEditor.Content.Text;
+                    this._appliedLogSearch = this.LogEditor.Content.SearchText;
+                    this._isLogRefreshPending = true;
+                    return;
+                }
+
+                this._isLogRefreshPending = false;
+                this.ApplyLogText(box, new LogContent(text, search), searchChanged && project is not null && project.HasMatches);
+                return;
+            }
+#endif
+
+            this.LogEditor.Content = new LogContent(text, search);
         });
     }
 
-    private void ScrollLogToEnd()
-    {
 #if WINDOWS
-        if (this.LogEditor.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBox textBox)
-        {
-            return;
-        }
+    private void ApplyLogText(Microsoft.UI.Xaml.Controls.RichEditBox box, LogContent content, bool jumpToMatch)
+    {
+        Microsoft.UI.Xaml.Controls.ScrollViewer? viewer = FindScrollViewer(box);
+        bool followEnd = viewer is null || viewer.ScrollableHeight - viewer.VerticalOffset < 8;
+        double offset = viewer?.VerticalOffset ?? 0;
 
-        Microsoft.UI.Xaml.Controls.ScrollViewer? viewer = FindScrollViewer(textBox);
+        this.LogEditor.Content = content;
 
-        if (viewer is null)
-        {
-            return;
-        }
-
-        if (this._viewModel.SelectedProject is not null && this._viewModel.SelectedProject.HasSearch)
-        {
-            viewer.ChangeView(null, 0, null, true);
-            return;
-        }
-
-        if (textBox.SelectionLength > 0)
+        if (viewer is null || jumpToMatch)
         {
             return;
         }
 
         viewer.UpdateLayout();
-        viewer.ChangeView(null, viewer.ScrollableHeight, null, true);
-#endif
+
+        if (followEnd)
+        {
+            viewer.ChangeView(null, viewer.ScrollableHeight, null, true);
+        }
+        else
+        {
+            viewer.ChangeView(null, offset, null, true);
+        }
     }
 
-#if WINDOWS
+    private void OnLogEditorHandlerChanged(object? sender, EventArgs eventArgs)
+    {
+        if (this.LogEditor.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.RichEditBox box)
+        {
+            return;
+        }
+
+        box.AddHandler(
+            Microsoft.UI.Xaml.UIElement.PointerPressedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(this.OnLogPointerPressed),
+            true);
+        box.AddHandler(
+            Microsoft.UI.Xaml.UIElement.PointerReleasedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(this.OnLogPointerReleased),
+            true);
+        box.AddHandler(
+            Microsoft.UI.Xaml.UIElement.PointerCaptureLostEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(this.OnLogPointerReleased),
+            true);
+        box.SelectionChanged += this.OnLogSelectionChanged;
+    }
+
+    private void OnLogPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs eventArgs)
+    {
+        this._isLogPointerDown = true;
+    }
+
+    private void OnLogPointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs eventArgs)
+    {
+        this._isLogPointerDown = false;
+        this.FlushPendingLog();
+    }
+
+    private void OnLogSelectionChanged(object sender, Microsoft.UI.Xaml.RoutedEventArgs eventArgs)
+    {
+        this.FlushPendingLog();
+    }
+
+    private void FlushPendingLog()
+    {
+        if (!this._isLogRefreshPending || this._isLogPointerDown)
+        {
+            return;
+        }
+
+        if (this.LogEditor.Handler?.PlatformView is Microsoft.UI.Xaml.Controls.RichEditBox box && box.Document.Selection.Length != 0)
+        {
+            return;
+        }
+
+        this.RefreshLog();
+    }
+
+
     private static Microsoft.UI.Xaml.Controls.ScrollViewer? FindScrollViewer(Microsoft.UI.Xaml.DependencyObject root)
     {
         int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);

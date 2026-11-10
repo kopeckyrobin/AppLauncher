@@ -10,6 +10,12 @@ public sealed class LaunchProfile
 
     public int EnvironmentVariableCount { get; init; }
 
+    public IReadOnlyDictionary<string, string> EnvironmentVariables { get; init; } = new Dictionary<string, string>();
+
+    public string? CommandLineArguments { get; init; }
+
+    public string? WorkingDirectory { get; init; }
+
     public string PrimaryUrl
     {
         get

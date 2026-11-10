@@ -546,6 +546,19 @@ public sealed class GitService
         }
     }
 
+    public async Task StashClearAsync(string repositoryPath, CancellationToken cancellationToken)
+    {
+        GitCommandResult result = await this.RunAsync(
+            repositoryPath,
+            new[] { "stash", "clear" },
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(DescribeFailure("git stash clear", result));
+        }
+    }
+
     private async Task<string> ReadStashHeadAsync(string repositoryPath, CancellationToken cancellationToken)
     {
         GitCommandResult result = await this.RunAsync(

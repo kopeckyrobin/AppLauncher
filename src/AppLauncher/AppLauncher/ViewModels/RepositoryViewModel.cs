@@ -6,6 +6,9 @@ public sealed class RepositoryViewModel : ObservableBase
 {
     private readonly AppStateStore _stateStore;
     private readonly Action<RepositoryViewModel> _onShowDiff;
+    private readonly Action<RepositoryViewModel> _onVisibilityChanged;
+    private readonly RelayCommand _hideCommand;
+    private readonly RelayCommand _unhideCommand;
     private readonly RelayCommand _toggleExpandCommand;
     private readonly RelayCommand _showDiffCommand;
     private readonly RelayCommand _openFolderCommand;
@@ -18,13 +21,17 @@ public sealed class RepositoryViewModel : ObservableBase
         string directoryPath,
         IReadOnlyList<SolutionViewModel> solutions,
         AppStateStore stateStore,
-        Action<RepositoryViewModel> onShowDiff)
+        Action<RepositoryViewModel> onShowDiff,
+        Action<RepositoryViewModel> onVisibilityChanged)
     {
         this.Name = name;
         this.DirectoryPath = directoryPath;
         this.Solutions = solutions;
         this._stateStore = stateStore;
         this._onShowDiff = onShowDiff;
+        this._onVisibilityChanged = onVisibilityChanged;
+        this._hideCommand = new RelayCommand(this.Hide, () => !this.HasRunning);
+        this._unhideCommand = new RelayCommand(this.Unhide);
         this._isExpanded = !stateStore.IsCollapsed(directoryPath);
         this._toggleExpandCommand = new RelayCommand(this.ToggleExpand);
         this._showDiffCommand = new RelayCommand(this.ShowDiff);
@@ -114,6 +121,21 @@ public sealed class RepositoryViewModel : ObservableBase
         }
     }
 
+    public bool IsHidden
+    {
+        get { return this._stateStore.IsHidden(this.DirectoryPath); }
+    }
+
+    public System.Windows.Input.ICommand HideCommand
+    {
+        get { return this._hideCommand; }
+    }
+
+    public System.Windows.Input.ICommand UnhideCommand
+    {
+        get { return this._unhideCommand; }
+    }
+
     public string ProjectCountLabel
     {
         get
@@ -147,6 +169,19 @@ public sealed class RepositoryViewModel : ObservableBase
     {
         this.RaisePropertyChanged(nameof(this.RunningCount));
         this.RaisePropertyChanged(nameof(this.HasRunning));
+        this._hideCommand.RaiseCanExecuteChanged();
+    }
+
+    private void Hide()
+    {
+        this._stateStore.SetHidden(this.DirectoryPath, true);
+        this._onVisibilityChanged(this);
+    }
+
+    private void Unhide()
+    {
+        this._stateStore.SetHidden(this.DirectoryPath, false);
+        this._onVisibilityChanged(this);
     }
 
     private void ToggleExpand()

@@ -16,7 +16,8 @@ public sealed class GitDiffViewModel : ObservableBase
         Stash,
         StashPop,
         StashApply,
-        StashDrop
+        StashDrop,
+        StashClear
     }
 
     private readonly GitService _gitService = new();
@@ -32,6 +33,7 @@ public sealed class GitDiffViewModel : ObservableBase
     private readonly RelayCommand _stashPopCommand;
     private readonly RelayCommand _stashApplyCommand;
     private readonly RelayCommand _stashDropCommand;
+    private readonly RelayCommand _stashClearCommand;
     private readonly RelayCommand _toggleGitMenuCommand;
     private readonly RelayCommand _closeGitMenuCommand;
     private readonly RelayCommand _findNextCommand;
@@ -96,6 +98,7 @@ public sealed class GitDiffViewModel : ObservableBase
         this._stashPopCommand = new RelayCommand(this.StashPop, this.CanUseStash);
         this._stashApplyCommand = new RelayCommand(this.StashApply, this.CanUseStash);
         this._stashDropCommand = new RelayCommand(this.StashDrop, this.CanUseStash);
+        this._stashClearCommand = new RelayCommand(this.StashClear, this.CanClearStashes);
         this._toggleGitMenuCommand = new RelayCommand(this.ToggleGitMenu);
         this._closeGitMenuCommand = new RelayCommand(this.CloseGitMenu);
         this._findNextCommand = new RelayCommand(this.FindNext, this.HasMatches);
@@ -235,6 +238,11 @@ public sealed class GitDiffViewModel : ObservableBase
     public System.Windows.Input.ICommand StashDropCommand
     {
         get { return this._stashDropCommand; }
+    }
+
+    public System.Windows.Input.ICommand StashClearCommand
+    {
+        get { return this._stashClearCommand; }
     }
 
     public System.Windows.Input.ICommand ToggleGitMenuCommand
@@ -1068,6 +1076,7 @@ public sealed class GitDiffViewModel : ObservableBase
         this._stashPopCommand.RaiseCanExecuteChanged();
         this._stashApplyCommand.RaiseCanExecuteChanged();
         this._stashDropCommand.RaiseCanExecuteChanged();
+        this._stashClearCommand.RaiseCanExecuteChanged();
     }
 
     private bool CanStartOperation()
@@ -1326,6 +1335,69 @@ public sealed class GitDiffViewModel : ObservableBase
     private bool CanUseStash()
     {
         return this.CanStartOperation() && this._selectedStash is not null;
+    }
+
+    private bool CanClearStashes()
+    {
+        return this.CanStartOperation() && this.HasStashes;
+    }
+
+    private void StashClear()
+    {
+        _ = this.ConfirmAndClearStashesAsync();
+    }
+
+    private async Task ConfirmAndClearStashesAsync()
+    {
+        int count = this.Stashes.Count;
+
+        if (this.ConfirmGuard is not null)
+        {
+            bool confirmed = await this.ConfirmGuard(
+                $"Opravdu zahodit všechny stashe ({count})? Uložené změny už nepůjdou obnovit.");
+
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        if (!this.CanClearStashes())
+        {
+            return;
+        }
+
+        CancellationTokenSource cancellation = new(OperationTimeout);
+
+        this._operationCancellation = cancellation;
+        this.SetOperation(GitOperation.StashClear);
+        this.CommitFailed = false;
+        this.CommitStatus = "Zahazuji všechny stashe…";
+
+        try
+        {
+            await this._gitService.StashClearAsync(this._repositoryPath, cancellation.Token);
+            this.CommitStatus = "Všechny stashe zahozeny.";
+            this.Refresh();
+        }
+        catch (OperationCanceledException)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = "Operace se stashem zrušena.";
+            this.Refresh();
+        }
+        catch (Exception exception)
+        {
+            this.CommitFailed = true;
+            this.CommitStatus = Condense(exception.Message);
+            this.Refresh();
+        }
+        finally
+        {
+            this.SetOperation(GitOperation.None);
+            this._operationCancellation = null;
+            cancellation.Dispose();
+        }
     }
 
     private void StashPop()

@@ -256,13 +256,14 @@
 
             <Grid Grid.Column="0" RowDefinitions="*,Auto">
                 <ScrollView Grid.Row="0">
+                    <VerticalStackLayout Spacing="10">
                     <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Repositories}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:RepositoryViewModel">
                                 <Border Style="{StaticResource PanelBorder}" Padding="0">
                                     <VerticalStackLayout>
 
-                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto"
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto"
                                               ColumnSpacing="8"
                                               Padding="12,9,10,9">
                                             <Grid.GestureRecognizers>
@@ -345,6 +346,18 @@
                                                     IsVisible="{Binding HasGit}"
                                                     ToolTipProperties.Text="Git diff"
                                                     Command="{Binding ShowDiffCommand}" />
+
+                                            <Button Grid.Column="8"
+                                                    Text="&#xED1A;"
+                                                    Style="{StaticResource ToolButton}"
+                                                    FontFamily="Segoe MDL2 Assets"
+                                                    HeightRequest="26"
+                                                    WidthRequest="32"
+                                                    FontSize="15"
+                                                    Padding="0"
+                                                    VerticalOptions="Center"
+                                                    ToolTipProperties.Text="Skrýt stack"
+                                                    Command="{Binding HideCommand}" />
                                         </Grid>
 
                                         <VerticalStackLayout IsVisible="{Binding IsExpanded}"
@@ -422,6 +435,63 @@
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
                     </VerticalStackLayout>
+
+                    <Border Style="{StaticResource PanelBorder}"
+                            Padding="0"
+                            IsVisible="{Binding HasHiddenRepositories}">
+                        <VerticalStackLayout>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Padding="12,9,10,9">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ToggleHiddenCommand}" />
+                                </Grid.GestureRecognizers>
+
+                                <Label Grid.Column="0"
+                                       Text="{Binding HiddenExpanderGlyph}"
+                                       FontSize="10"
+                                       TextColor="{StaticResource TextMuted}"
+                                       WidthRequest="12"
+                                       VerticalOptions="Center" />
+
+                                <Label Grid.Column="1"
+                                       Text="{Binding HiddenHeader}"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextSecondary}"
+                                       VerticalOptions="Center" />
+                            </Grid>
+
+                            <VerticalStackLayout IsVisible="{Binding IsHiddenExpanded}"
+                                                 Padding="0,0,0,8"
+                                                 BindableLayout.ItemsSource="{Binding HiddenRepositories}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RepositoryViewModel">
+                                        <Grid ColumnDefinitions="*,Auto,Auto"
+                                              ColumnSpacing="10"
+                                              Padding="20,7,12,7">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   FontSize="13"
+                                                   LineBreakMode="TailTruncation"
+                                                   VerticalOptions="Center" />
+
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding ProjectCountLabel}"
+                                                   Style="{StaticResource CaptionLabel}"
+                                                   VerticalOptions="Center" />
+
+                                            <Button Grid.Column="2"
+                                                    Text="Zobrazit"
+                                                    Style="{StaticResource ToolButton}"
+                                                    HeightRequest="26"
+                                                    VerticalOptions="Center"
+                                                    Command="{Binding UnhideCommand}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                    </VerticalStackLayout>
                 </ScrollView>
 
                 <VerticalStackLayout Grid.Row="0"
@@ -498,6 +568,11 @@
                                         TextColor="{StaticResource Accent}"
                                         IsVisible="{Binding SelectedProject.HasDisplayUrl}"
                                         Command="{Binding SelectedProject.OpenUrlCommand}" />
+                                <Picker Title="Úroveň logu"
+                                        WidthRequest="150"
+                                        VerticalOptions="Center"
+                                        ItemsSource="{Binding SelectedProject.SeverityOptions}"
+                                        SelectedIndex="{Binding SelectedProject.SelectedSeverityIndex}" />
                                 <Button Text="Kopírovat"
                                         Style="{StaticResource ToolButton}"
                                         HeightRequest="28"
@@ -536,15 +611,16 @@
                                 <Label Text="{Binding SelectedProject.SearchStatus}"
                                        Style="{StaticResource CaptionLabel}"
                                        VerticalOptions="Center"
-                                       IsVisible="{Binding SelectedProject.HasSearch}" />
+                                       IsVisible="{Binding SelectedProject.HasFilter}" />
                             </HorizontalStackLayout>
                         </Grid>
 
-                        <Editor Grid.Row="3"
-                                x:Name="LogEditor"
-                                Margin="10,6,10,10"
-                                Style="{StaticResource LogEditor}"
-                                IsReadOnly="True" />
+                        <views:LogView Grid.Row="3"
+                                       x:Name="LogEditor"
+                                       Margin="10,6,10,10"
+                                       TextColor="{StaticResource TextSecondary}"
+                                       FontFamily="Consolas"
+                                       FontSize="12" />
                     </Grid>
                 </Grid>
             </Border>
@@ -681,7 +757,7 @@
                         StrokeThickness="0"
                         Padding="14,7"
                         IsVisible="{Binding GitDiff.ShowStashBar}">
-                    <Grid ColumnDefinitions="Auto,Auto,Auto,260,Auto,Auto,Auto,*" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,260,Auto,Auto,Auto,Auto,*" ColumnSpacing="8">
 
                         <Label Grid.Column="0"
                                Text="Stash"
@@ -736,6 +812,15 @@
                                 IsVisible="{Binding GitDiff.HasStashes}"
                                 ToolTipProperties.Text="git stash drop"
                                 Command="{Binding GitDiff.StashDropCommand}" />
+
+                        <Button Grid.Column="7"
+                                Text="Zahodit vše"
+                                Style="{StaticResource ToolButton}"
+                                HeightRequest="26"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding GitDiff.HasStashes}"
+                                ToolTipProperties.Text="git stash clear"
+                                Command="{Binding GitDiff.StashClearCommand}" />
                     </Grid>
                 </Border>
 

@@ -66,7 +66,10 @@ public static class LaunchSettingsReader
                     Name = profile.Name,
                     ApplicationUrl = ReadString(profile.Value, "applicationUrl"),
                     EnvironmentName = ReadEnvironmentName(profile.Value),
-                    EnvironmentVariableCount = CountEnvironmentVariables(profile.Value)
+                    EnvironmentVariableCount = CountEnvironmentVariables(profile.Value),
+                    EnvironmentVariables = ReadEnvironmentVariables(profile.Value),
+                    CommandLineArguments = ReadString(profile.Value, "commandLineArgs"),
+                    WorkingDirectory = ReadString(profile.Value, "workingDirectory")
                 });
             }
 
@@ -112,6 +115,27 @@ public static class LaunchSettingsReader
         }
 
         return null;
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadEnvironmentVariables(JsonElement profile)
+    {
+        Dictionary<string, string> result = new(StringComparer.OrdinalIgnoreCase);
+
+        if (!profile.TryGetProperty("environmentVariables", out JsonElement variables) ||
+            variables.ValueKind != JsonValueKind.Object)
+        {
+            return result;
+        }
+
+        foreach (JsonProperty variable in variables.EnumerateObject())
+        {
+            if (variable.Value.ValueKind == JsonValueKind.String)
+            {
+                result[variable.Name] = variable.Value.GetString() ?? String.Empty;
+            }
+        }
+
+        return result;
     }
 
     private static int CountEnvironmentVariables(JsonElement profile)

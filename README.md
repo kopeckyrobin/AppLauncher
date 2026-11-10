@@ -53,33 +53,39 @@ Alternativa bez instalace: `AppLauncher-win-Portable.zip` ze stejného release. 
 
 ## Jak funguje skenování
 
-Aplikace nehledá projekty rekurzivně po celém disku — spoléhá na konvenci `src/`:
+Aplikace nehledá projekty rekurzivně po celém disku — řešení hledá jen do omezené hloubky:
 
 ```
 <kořen repozitářů>/
 └── <repozitář>/
+    ├── Root.sln               ← solution v kořeni repozitáře
     └── src/
-        ├── Foo.slnx           ← solution přímo v src/
+        ├── Foo.slnx           ← v podsložce
         └── Bar/
             └── Bar.sln        ← nebo o úroveň níž
 ```
 
 Pravidla:
 
-- Repozitář se zobrazí, jen pokud obsahuje složku `src/`.
-- Řešení se hledají v `src/` a v jeho **přímých** podsložkách. Hlouběji už ne.
-- Složky začínající tečkou a `node_modules` se přeskakují.
+- Repozitář se zobrazí, jen pokud obsahuje aspoň jedno řešení s runnable projektem.
+- Řešení se hledají v kořeni repozitáře, v jeho podsložkách a v jejich podsložkách (3 úrovně). Hlouběji už ne.
+- Složky začínající tečkou, `node_modules`, `bin` a `obj` se přeskakují.
 - Když vedle sebe leží `Foo.sln` a `Foo.slnx`, přednost dostane `.slnx`.
 - Projekt se zobrazí, jen pokud má `Properties/launchSettings.json` s aspoň jedním profilem, kde `commandName` je `Project` (nebo chybí).
 - Projekt zapsaný ve víc řešeních se zobrazí jen jednou, u prvního z nich.
 
 **Multi-target projekty:** má-li `.csproj` víc TFM, aplikace vybere jeden a přidá ho na příkazovou řádku jako `-f`. Preferuje framework s `-windows`, jinak první bez pomlčky.
 
-Spouštěný příkaz je vždy vidět v prvním řádku logu:
+Projekt se nejdřív sestaví (`dotnet build`) a pak se spustí přímo sestavené `.exe` s proměnnými z vybraného launch profilu (`environmentVariables`, `applicationUrl` jako `ASPNETCORE_URLS`, `commandLineArgs`, `workingDirectory`). Nad aplikací tak nevisí proces `dotnet run`. Všem spouštěným procesům se nastavuje `MSBUILDDISABLENODEREUSE=1`, takže po buildu nezůstávají viset MSBuild uzly. Nepodaří-li se najít výstup, použije se `dotnet run --no-build`.
+
+Spouštěné příkazy jsou vidět v logu:
 
 ```
-dotnet run --project "C:\repos\Foo\src\Foo.Api\Foo.Api.csproj" --launch-profile "https" -f net10.0
+> dotnet build "C:\repos\Foo\src\Foo.Api\Foo.Api.csproj" --nologo -nodeReuse:false -f net10.0
+> C:\repos\Foo\src\Foo.Api\bin\Debug\net10.0\Foo.Api.exe
 ```
+
+**Filtr závažnosti:** tlačítka DEBUG / INFO / WARNING / ERROR nad logem skrývají a zobrazují řádky podle úrovně. Úroveň se pozná z formátu konzolového loggeru (`info:`, `warn:`, `fail:`), Serilogu (`[INF]`, `[WRN]`), řádků začínajících `ERROR` / `WARNING` apod. a z chyb a varování MSBuildu. Řádky bez vlastní úrovně (stack trace, pokračování zprávy) přebírají úroveň předchozího řádku.
 
 ## Git panel
 
